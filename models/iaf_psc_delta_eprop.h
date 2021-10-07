@@ -299,9 +299,9 @@ private:
   double
   get_last_h_() const
   {
-    if ( eprop_history_.size() != 0 )
+    if ( eprop_history_.size() > 0 )
     {
-      return (eprop_history_.rbegin())->V_m_;
+      return ( eprop_history_.rbegin() )->V_m_;
     }
     return 0.0;
   }

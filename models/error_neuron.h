@@ -252,9 +252,9 @@ private:
   double
   get_last_ls_() const
   {
-    if ( eprop_history_.size() > 0 )
+    if ( eprop_history_.size() > 3 )
     {
-      return ( ( eprop_history_.rbegin() ) + 0 )->learning_signal_;
+      return ( ( eprop_history_.rbegin() ) + 3 )->learning_signal_;
     }
     return 0.0;
   }
