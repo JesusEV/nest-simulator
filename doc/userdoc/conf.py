@@ -29,6 +29,8 @@ import subprocess
 from pathlib import Path
 from shutil import copyfile
 
+import sphinx_rtd_theme
+
 from subprocess import check_output, CalledProcessError
 from mock import Mock as MagicMock
 
@@ -77,6 +79,13 @@ import pynestkernel_mock  # noqa
 sys.modules["nest.pynestkernel"] = pynestkernel_mock
 sys.modules["nest.kernel"] = pynestkernel_mock
 
+# For the doc build, explicitly import `nest` here so that it isn't
+# `MagicMock`ed later on and expose `nest.NestModule` as `sphinx` does not seem
+# to autodoc properties the way the `autoclass` directive would. We can then
+# autoclass `nest.NestModule` to generate the documentation of the properties
+import nest  # noqa
+nest.NestModule = type(nest)
+
 # -- General configuration ------------------------------------------------
 extensions = [
     'sphinx_gallery.gen_gallery',
@@ -89,7 +98,8 @@ extensions = [
     'sphinx.ext.coverage',
     'sphinx.ext.mathjax',
     'sphinx_tabs.tabs',
-    'nbsphinx'
+    'nbsphinx',
+    'sphinx_rtd_theme'
 ]
 
 mathjax_path = "https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.4/MathJax.js?config=TeX-AMS-MML_HTMLorMML"  # noqa
@@ -145,6 +155,7 @@ numfig = True
 numfig_secnum_depth = (2)
 numfig_format = {'figure': 'Figure %s', 'table': 'Table %s',
                  'code-block': 'Code Block %s'}
+
 # -- Options for HTML output ----------------------------------------------
 
 # The theme to use for HTML and HTML Help pages.  See the documentation for
@@ -153,7 +164,7 @@ numfig_format = {'figure': 'Figure %s', 'table': 'Table %s',
 html_theme = 'sphinx_rtd_theme'
 html_logo = str(doc_build_dir / 'static/img/nest_logo.png')
 html_theme_options = {'logo_only': True,
-                      'display_version': False}
+                      'display_version': True}
 
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
@@ -166,8 +177,9 @@ html_theme_options = {'logo_only': True,
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = [str(doc_build_dir / 'static')]
 
-rst_prolog = ".. warning:: \n  This is A PREVIEW for NEST 3.0 and NOT an OFFICIAL RELEASE! \
-             Some functionality may not be available and information may be incomplete!"
+rst_prolog = ".. warning:: \n   This version of the documentation is NOT an official release. \
+             You are looking at 'latest', which is in active and ongoing development. \
+             You can change versions on the bottom left of the screen."
 rst_epilog = ""
 # -- Options for HTMLHelp output ------------------------------------------
 
@@ -181,7 +193,17 @@ html_show_copyright = False
 # With this local 'make html' is broken!
 github_doc_root = ''
 
-intersphinx_mapping = {'https://docs.python.org/': None}
+intersphinx_mapping = {
+    'python': ('https://docs.python.org/3', None),
+    'nestml': ('https://nestml.readthedocs.io/en/latest/', None),
+    'pynn': ('http://neuralensemble.org/docs/PyNN/', None),
+    'elephant': ('https://elephant.readthedocs.io/en/latest/', None),
+    'desktop': ('https://nest-desktop.readthedocs.io/en/latest/', None),
+    'neuromorph': ('https://electronicvisions.github.io/hbp-sp9-guidebook/', None),
+    'arbor': ('https://arbor.readthedocs.io/en/latest/', None),
+    'tvb': ('http://docs.thevirtualbrain.org/', None),
+    'extmod': ('https://nest-extension-module.readthedocs.io/en/latest/', None),
+}
 
 from doc.extractor_userdocs import ExtractUserDocs, relative_glob  # noqa
 
@@ -279,7 +301,6 @@ def copy_acknowledgments_file(src):
 
 # -- Copy Acknowledgments file ----------------------------
 copy_acknowledgments_file(source_dir / "ACKNOWLEDGMENTS.md")
-
 # -- Copy documentation for Microcircuit Model ----------------------------
 copy_example_file(source_dir / "pynest/examples/Potjans_2014/box_plot.png")
 copy_example_file(source_dir / "pynest/examples/Potjans_2014/raster_plot.png")
