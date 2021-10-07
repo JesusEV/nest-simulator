@@ -130,6 +130,7 @@ public:
    */
   void send( Event& e, thread t, const CommonSynapseProperties& cp );
 
+  void optimize(double learning_period_counter_);
 
   class ConnTestDummyNode : public ConnTestDummyNodeBase
   {
@@ -244,6 +245,8 @@ EpropConnection< targetidentifierT >::send( Event& e,
 
       // DEBUG II: the learning_period_counter corresponds to the variable t of the adam optimizer
       double learning_period_counter_ = floor( ( t_spike - dt ) / update_interval_ )  / batch_size_;
+      long current_batch_elem_ = long( floor( ( t_spike ) / update_interval_ ) -1  ) % long( batch_size_ );
+
       //DEBUG: added 2*delay to be in sync with TF code
       double t_update_ = ( floor( ( t_spike - dt ) / update_interval_ ) ) * update_interval_ + 2.0 *
         dendritic_delay;
@@ -384,19 +387,76 @@ EpropConnection< targetidentifierT >::send( Event& e,
       }
       // implementation of batches: store all gradients in a vector and compute the weight using
       // their mean value.
+
+      if ( isnan( grad ) )
+      {
+        std::cout << "gradient is nan; something went terribly wrong!" << std::endl;
+      }
+
       grads_.push_back( grad );
+
+      size_t batch_elem_ = grads_.size() - 1;
+      long n_missing_grads = current_batch_elem_ - batch_elem_;
+      long n_missing_to_epi_end = (long(batch_size_)-1) - batch_elem_;
+      long n_missing_beyond_epi_end = (long(batch_size_) + n_missing_grads) - n_missing_to_epi_end;
+
+      if (n_missing_grads > 0)
+      {
+          size_t old_grad_size = grads_.size();
+          for (int ig = 0; ig < n_missing_grads; ig++)
+            grads_.push_back( 0 );
+      }
+      else if (n_missing_grads < 0)
+      {
+          size_t old_grad_size = grads_.size();
+          for (int ig = 0; ig < n_missing_to_epi_end; ig++)
+            grads_.push_back( 0 );
+      }
+
       size_t batch_size_cast = batch_size_;
       if ( grads_.size() >= batch_size_cast )
       {
+          optimize(learning_period_counter_);
+          if (n_missing_grads < 0)
+          {
+              for (int ig = 0; ig < n_missing_beyond_epi_end; ig++)
+                grads_.push_back( 0 );
+          }
+      }
+      // DEBUG: define t_lastupdate_ to be the end of the last period T to be compatible with tf code
+      t_lastupdate_ = t_update_;
+      t_nextupdate_ += ( floor( ( t_spike - t_nextupdate_ ) / update_interval_ ) + 1 ) *
+        update_interval_;
+      // clear history of presynaptic spike because we don't need them any more
+      pre_syn_spike_times_.clear();
+      pre_syn_spike_times_.push_back( t_spike );
+      // DEBUG: tidy_eprop_history also takes care of the spike_history
+      target->tidy_eprop_history( t_lastupdate_ - dendritic_delay );
+    }
+  }
+
+  e.set_receiver( *target );
+  e.set_weight( weight_ );
+  // use accessor functions (inherited from Connection< >) to obtain delay in
+  // steps and rport
+  e.set_delay_steps( get_delay_steps() );
+  e.set_rport( get_rport() );
+  e();
+
+  t_lastspike_ = t_spike;
+}
+
+
+template < typename targetidentifierT >
+inline void
+EpropConnection< targetidentifierT >::optimize(double learning_period_counter_)
+{
         double sum_grads = 0.0;
         for ( auto gr : grads_ )
         {
           sum_grads += gr;
         }
-        if ( isnan( grad ) )
-        {
-          std::cout << "gradient is nan; something went terribly wrong!" << std::endl;
-        }
+
         if ( use_adam_ == 1.0 ) // use adam optimizer
         {
           // divide also by the number of recall steps to be compatible with the tf implementation
@@ -422,30 +482,9 @@ EpropConnection< targetidentifierT >::send( Event& e,
         {
           weight_ = Wmin_;
         }
+
         // clear the buffer of the gradients so that we can start a new batch
         grads_.clear();
-      }
-      // DEBUG: define t_lastupdate_ to be the end of the last period T to be compatible with tf code
-      t_lastupdate_ = t_update_;
-      t_nextupdate_ += ( floor( ( t_spike - t_nextupdate_ ) / update_interval_ ) + 1 ) *
-        update_interval_;
-      // clear history of presynaptic spike because we don't need them any more
-      pre_syn_spike_times_.clear();
-      pre_syn_spike_times_.push_back( t_spike );
-      // DEBUG: tidy_eprop_history also takes care of the spike_history
-      target->tidy_eprop_history( t_lastupdate_ - dendritic_delay );
-    }
-  }
-
-  e.set_receiver( *target );
-  e.set_weight( weight_ );
-  // use accessor functions (inherited from Connection< >) to obtain delay in
-  // steps and rport
-  e.set_delay_steps( get_delay_steps() );
-  e.set_rport( get_rport() );
-  e();
-
-  t_lastspike_ = t_spike;
 }
 
 
