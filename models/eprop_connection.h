@@ -130,7 +130,7 @@ public:
    */
   void send( Event& e, thread t, const CommonSynapseProperties& cp );
 
-  void optimize(double learning_period_counter_);
+  void optimize( int learning_period_counter_, int &last_learning_period_ );
 
   class ConnTestDummyNode : public ConnTestDummyNodeBase
   {
@@ -186,6 +186,7 @@ private:
   double t_lastspike_;
   double t_lastupdate_;
   double t_nextupdate_;
+  int last_learning_period_;
   double keep_traces_;
   double rate_reg_;
   double target_firing_rate_;
@@ -228,8 +229,10 @@ EpropConnection< targetidentifierT >::send( Event& e,
 
   // spikes that do not meet the following condition do not need to be delivered because they would
   // arrive during the reset period (-> at the end of a training interval T) of the postsynaptic neuron
-  if ( ! ( Time( Time::ms( t_spike ) ).get_steps() % Time( Time::ms( update_interval_ ) ).get_steps()
-      - Time( Time::ms( dendritic_delay ) ).get_steps() == 0 ) )
+  // However, for the readout neurons they are taken into account.
+  if ( ! ( ( Time( Time::ms( t_spike ) ).get_steps() % Time( Time::ms( update_interval_ ) ).get_steps()
+      - Time( Time::ms( dendritic_delay ) ).get_steps() == 0 )
+          && ( ! target->is_eprop_readout() ) ) )
   {
     // store times of incoming spikes to enable computation of eligibility trace
     pre_syn_spike_times_.push_back( t_spike );
@@ -244,8 +247,7 @@ EpropConnection< targetidentifierT >::send( Event& e,
       std::deque< histentry_eprop >::iterator finish;
 
       // DEBUG II: the learning_period_counter corresponds to the variable t of the adam optimizer
-      double learning_period_counter_ = floor( ( t_spike - dt ) / update_interval_ )  / batch_size_;
-      long current_batch_elem_ = long( floor( ( t_spike ) / update_interval_ ) -1  ) % long( batch_size_ );
+      int learning_period_counter_ = ( int ) floor( ( t_spike - dt ) / update_interval_ )  / batch_size_;
 
       //DEBUG: added 2*delay to be in sync with TF code
       double t_update_ = ( floor( ( t_spike - dt ) / update_interval_ ) ) * update_interval_ + 2.0 *
@@ -395,33 +397,9 @@ EpropConnection< targetidentifierT >::send( Event& e,
 
       grads_.push_back( grad );
 
-      size_t batch_elem_ = grads_.size() - 1;
-      long n_missing_grads = current_batch_elem_ - batch_elem_;
-      long n_missing_to_epi_end = (long(batch_size_)-1) - batch_elem_;
-      long n_missing_beyond_epi_end = (long(batch_size_) + n_missing_grads) - n_missing_to_epi_end;
-
-      if (n_missing_grads > 0)
+      if ( learning_period_counter_ > last_learning_period_ )
       {
-          size_t old_grad_size = grads_.size();
-          for (int ig = 0; ig < n_missing_grads; ig++)
-            grads_.push_back( 0 );
-      }
-      else if (n_missing_grads < 0)
-      {
-          size_t old_grad_size = grads_.size();
-          for (int ig = 0; ig < n_missing_to_epi_end; ig++)
-            grads_.push_back( 0 );
-      }
-
-      size_t batch_size_cast = batch_size_;
-      if ( grads_.size() >= batch_size_cast )
-      {
-          optimize(learning_period_counter_);
-          if (n_missing_grads < 0)
-          {
-              for (int ig = 0; ig < n_missing_beyond_epi_end; ig++)
-                grads_.push_back( 0 );
-          }
+        optimize( learning_period_counter_, last_learning_period_ );
       }
       // DEBUG: define t_lastupdate_ to be the end of the last period T to be compatible with tf code
       t_lastupdate_ = t_update_;
@@ -449,7 +427,8 @@ EpropConnection< targetidentifierT >::send( Event& e,
 
 template < typename targetidentifierT >
 inline void
-EpropConnection< targetidentifierT >::optimize(double learning_period_counter_)
+EpropConnection< targetidentifierT >::optimize(int learning_period_counter_,
+    int &last_learning_period_ )
 {
         double sum_grads = 0.0;
         for ( auto gr : grads_ )
@@ -461,11 +440,23 @@ EpropConnection< targetidentifierT >::optimize(double learning_period_counter_)
         {
           // divide also by the number of recall steps to be compatible with the tf implementation
           sum_grads /= Time( Time::ms( recall_duration_ ) ).get_steps() * batch_size_;
-          m_adam_ = beta1_adam_ * m_adam_ + ( 1.0 - beta1_adam_ ) * sum_grads;
-          v_adam_ = beta2_adam_ * v_adam_ + ( 1.0 - beta2_adam_ ) * std::pow( sum_grads, 2 );
-          double alpha_t = learning_rate_ * std::sqrt( 1.0 - std::pow( beta2_adam_, learning_period_counter_ ) )
-            / ( 1.0 - std::pow( beta1_adam_, learning_period_counter_ ) );
-          weight_ -= alpha_t * m_adam_ / ( std::sqrt( v_adam_ ) + epsilon_adam_ );
+          // for loop to advance the state of the adam optimizer
+          for ( ; last_learning_period_ < learning_period_counter_; ++last_learning_period_ )
+          {
+            m_adam_ = beta1_adam_ * m_adam_ + ( 1.0 - beta1_adam_ ) * sum_grads;
+            v_adam_ = beta2_adam_ * v_adam_ + ( 1.0 - beta2_adam_ ) * sum_grads * sum_grads;
+            // last_learning_period_ + 1 in the following expression because the adam optimizer
+            // starts counting from 1, see Kingma and Lai Ba (2015)
+            double alpha_t = learning_rate_ * std::sqrt(
+                1.0 - std::pow( beta2_adam_, last_learning_period_ + 1 ) )
+              / ( 1.0 - std::pow( beta1_adam_, last_learning_period_ + 1 ) );
+            double weight_delta_ = - alpha_t * m_adam_ / ( std::sqrt( v_adam_ ) + epsilon_adam_ );
+            weight_ += weight_delta_;
+            // if we cycle through the loop more than once, this means that there were learning
+            // periods with vanishing gradients. Therefore, we have to set sum_grads to zero for the
+            // following iterations.
+          sum_grads = 0.0;
+          }
         }
         else // gradient descent
         {
@@ -474,6 +465,7 @@ EpropConnection< targetidentifierT >::optimize(double learning_period_counter_)
           weight_ -= learning_rate_ * sum_grads;
         }
         // check whether the new weight is between Wmin and Wmax
+        /*
         if ( weight_ > Wmax_ )
         {
           weight_ = Wmax_;
@@ -482,11 +474,11 @@ EpropConnection< targetidentifierT >::optimize(double learning_period_counter_)
         {
           weight_ = Wmin_;
         }
+        */
 
         // clear the buffer of the gradients so that we can start a new batch
         grads_.clear();
 }
-
 
 template < typename targetidentifierT >
 EpropConnection< targetidentifierT >::EpropConnection()
@@ -499,6 +491,7 @@ EpropConnection< targetidentifierT >::EpropConnection()
   , t_lastspike_( 0.0 )
   , t_lastupdate_( 0.0 )
   , t_nextupdate_( 100.0 )
+  , last_learning_period_( 0 )
   , keep_traces_( true )
   , rate_reg_( 0. )
   , target_firing_rate_( 10. )
@@ -527,6 +520,7 @@ EpropConnection< targetidentifierT >::EpropConnection(
   , t_lastspike_( rhs.t_lastspike_ )
   , t_lastupdate_( rhs.t_lastupdate_ )
   , t_nextupdate_( rhs.t_nextupdate_ )
+  , last_learning_period_( rhs.last_learning_period_ )
   , keep_traces_( rhs.keep_traces_ )
   , rate_reg_( rhs.rate_reg_ )
   , target_firing_rate_( rhs.target_firing_rate_ )
@@ -613,6 +607,7 @@ EpropConnection< targetidentifierT >::set_status( const DictionaryDatum& d,
   }
 
   // check if Wmax >= weight >= Wmin
+  /*
   if ( not ( ( Wmax_ >= weight_ ) && ( Wmin_ <= weight_ ) ) )
   {
     throw BadProperty( "Wmax, Wmin and the Weight have to satisfy Wmax >= Weight >= Wmin");
@@ -622,6 +617,7 @@ EpropConnection< targetidentifierT >::set_status( const DictionaryDatum& d,
   {
     throw BadProperty( "Weight and Wmin must have same sign." );
   }
+  */
 
   if ( update_interval_ <= 0.0 )
   {
