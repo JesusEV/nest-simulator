@@ -371,6 +371,11 @@ EpropConnection< targetidentifierT >::send( Event& e,
             }
           }
         }
+        // TODO: in the evidence accumulation task only the gradients due to the learning signal
+        // are divided by the recall duration. We have to investigte how this affects the regression
+        // task.
+        // divide by the number of recall steps to be compatible with the tf implementation
+        grad /= Time( Time::ms( recall_duration_ ) ).get_steps();
         // firing rate regularization
         std::deque< double >::iterator start_spk;
         std::deque< double >::iterator finish_spk;
@@ -381,10 +386,11 @@ EpropConnection< targetidentifierT >::send( Event& e,
         int nspikes = std::distance(start_spk, finish_spk);
         // compute average firing rate since last update. factor 1000 to convert into Hz
         double av_firing_rate = nspikes / update_interval_;
-        // Eq.(56)
-        // TODO: is the dt needed in the following line?
-        grad += rate_reg_ * ( av_firing_rate - target_firing_rate_ / 1000.) * sum_elig_tr * dt /
+        // Eq.(56) TODO: this includes a factor 2.0 which is lacking in the derivation in the
+        // manuscript.
+        grad += 2. * rate_reg_ * ( av_firing_rate - target_firing_rate_ / 1000.) * sum_elig_tr * dt /
           update_interval_;
+        // TODO: is the following line needed? (dt = 1.0 anyway)
         grad *= dt;
       }
       // implementation of batches: store all gradients in a vector and compute the weight using
@@ -438,8 +444,8 @@ EpropConnection< targetidentifierT >::optimize(int learning_period_counter_,
 
         if ( use_adam_ == 1.0 ) // use adam optimizer
         {
-          // divide also by the number of recall steps to be compatible with the tf implementation
-          sum_grads /= Time( Time::ms( recall_duration_ ) ).get_steps() * batch_size_;
+          // divide by batch size to be compatible with TF code
+          sum_grads /= batch_size_;
           // for loop to advance the state of the adam optimizer
           for ( ; last_learning_period_ < learning_period_counter_; ++last_learning_period_ )
           {
