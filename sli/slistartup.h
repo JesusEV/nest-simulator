@@ -27,9 +27,9 @@
 #include <string>
 
 // Generated includes:
+#include "config.h"
 #include "dirent.h"
 #include "errno.h"
-#include "config.h"
 
 // Includes from libnestutil:
 #include "compose.hpp"
@@ -59,18 +59,15 @@
 
 class SLIStartup : public SLIModule
 {
-  const std::string startupfilename;
-  const std::string slilibpath;
-  std::string slilibdir;
-  std::string slidocdir;
-  std::string sliprefix;
+  const std::string sliprefix;
+  const std::string slilibdir;
+  const std::string slidocdir;
+  const std::string startupfile;
 
-  std::string locateSLIInstallationPath( void );
-  bool checkpath( std::string const&, std::string& ) const;
+  std::string find_startup_file( const std::string& ) const;
   std::string getenv( const std::string& ) const;
-  std::string checkenvpath( std::string const&, SLIInterpreter*, std::string ) const;
 
-  Token targs;
+  Token commandline_args_;
   int verbosity_;
   bool debug_;
 

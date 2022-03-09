@@ -39,14 +39,16 @@
 #include "aeif_psc_exp.h"
 #include "aif_psc_delta_eprop.h"
 #include "amat2_psc_exp.h"
+#include "cm_default.h"
 #include "erfc_neuron.h"
 #include "error_neuron.h"
 #include "gauss_rate.h"
-#include "gif_psc_exp.h"
-#include "gif_psc_exp_multisynapse.h"
 #include "gif_cond_exp.h"
 #include "gif_cond_exp_multisynapse.h"
 #include "gif_pop_psc_exp.h"
+#include "gif_psc_exp.h"
+#include "gif_psc_exp_multisynapse.h"
+#include "ginzburg_neuron.h"
 #include "glif_cond.h"
 #include "glif_psc.h"
 #include "ginzburg_neuron.h"
@@ -94,11 +96,11 @@
 #include "ac_generator.h"
 #include "dc_generator.h"
 #include "gamma_sup_generator.h"
+#include "inhomogeneous_poisson_generator.h"
 #include "mip_generator.h"
 #include "noise_generator.h"
 #include "poisson_generator.h"
 #include "poisson_generator_ps.h"
-#include "inhomogeneous_poisson_generator.h"
 #include "ppd_sup_generator.h"
 #include "pulsepacket_generator.h"
 #include "sinusoidal_gamma_generator.h"
@@ -136,15 +138,15 @@
 #include "rate_connection_instantaneous.h"
 #include "static_synapse.h"
 #include "static_synapse_hom_w.h"
+#include "stdp_dopamine_synapse.h"
+#include "stdp_nn_pre_centered_synapse.h"
+#include "stdp_nn_restr_synapse.h"
+#include "stdp_nn_symm_synapse.h"
+#include "stdp_pl_synapse_hom.h"
 #include "stdp_synapse.h"
 #include "stdp_synapse_facetshw_hom.h"
 #include "stdp_synapse_facetshw_hom_impl.h"
 #include "stdp_synapse_hom.h"
-#include "stdp_dopamine_synapse.h"
-#include "stdp_nn_restr_synapse.h"
-#include "stdp_nn_symm_synapse.h"
-#include "stdp_nn_pre_centered_synapse.h"
-#include "stdp_pl_synapse_hom.h"
 #include "stdp_triplet_synapse.h"
 #include "tsodyks2_synapse.h"
 #include "tsodyks_synapse.h"
@@ -216,12 +218,14 @@ ModelsModule::init( SLIInterpreter* )
   kernel().model_manager.register_node_model< rate_transformer_tanh >( "rate_transformer_tanh" );
   kernel().model_manager.register_node_model< rate_transformer_threshold_lin >( "rate_transformer_threshold_lin" );
 
+  kernel().model_manager.register_node_model< cm_default >( "cm_default" );
+
   kernel().model_manager.register_node_model< aif_psc_delta_eprop >( "aif_psc_delta_eprop" );
   kernel().model_manager.register_node_model< error_neuron >( "error_neuron" );
   kernel().model_manager.register_node_model< iaf_chs_2007 >( "iaf_chs_2007" );
   kernel().model_manager.register_node_model< iaf_psc_alpha >( "iaf_psc_alpha" );
   kernel().model_manager.register_node_model< iaf_psc_alpha_canon >(
-    "iaf_psc_alpha_canon", /*private_model*/ false, /*deprecation_info*/ "a future version of NEST" );
+    "iaf_psc_alpha_canon", /*deprecation_info*/ "a future version of NEST" );
   kernel().model_manager.register_node_model< iaf_psc_alpha_multisynapse >( "iaf_psc_alpha_multisynapse" );
   kernel().model_manager.register_node_model< iaf_psc_alpha_ps >( "iaf_psc_alpha_ps" );
   kernel().model_manager.register_node_model< iaf_psc_delta >( "iaf_psc_delta" );
@@ -238,7 +242,7 @@ ModelsModule::init( SLIInterpreter* )
   kernel().model_manager.register_node_model< parrot_neuron_ps >( "parrot_neuron_ps" );
   kernel().model_manager.register_node_model< pp_psc_delta >( "pp_psc_delta" );
   kernel().model_manager.register_node_model< pp_pop_psc_delta >(
-    "pp_pop_psc_delta", /*private_model*/ false, /*deprecation_info*/ "a future version of NEST" );
+    "pp_pop_psc_delta", /*deprecation_info*/ "a future version of NEST" );
   kernel().model_manager.register_node_model< gif_psc_exp >( "gif_psc_exp" );
   kernel().model_manager.register_node_model< gif_psc_exp_multisynapse >( "gif_psc_exp_multisynapse" );
   kernel().model_manager.register_node_model< glif_psc >( "glif_psc" );
