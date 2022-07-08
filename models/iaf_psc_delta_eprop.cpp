@@ -255,7 +255,7 @@ nest::iaf_psc_delta_eprop::init_buffers_()
 }
 
 void
-nest::iaf_psc_delta_eprop::calibrate()
+nest::iaf_psc_delta_eprop::pre_run_hook()
 {
   B_.logger_.init();
 

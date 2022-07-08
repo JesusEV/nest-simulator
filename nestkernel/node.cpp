@@ -411,8 +411,9 @@ Node::handle( LearningSignalConnectionEvent& )
 port
 Node::handles_test_event( LearningSignalConnectionEvent&, rport )
 {
-  throw IllegalConnection();
-  return invalid_port_;
+  throw IllegalConnection( "The target node cannot handle learning signal events or"
+     " synapse is not of type LearningSignalConnectionDelayed." );
+  return invalid_port;
 }
 
 void

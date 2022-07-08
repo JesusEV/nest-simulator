@@ -221,7 +221,7 @@ nest::error_neuron::init_buffers_()
 }
 
 void
-nest::error_neuron::calibrate()
+nest::error_neuron::pre_run_hook()
 {
   B_.logger_
     .init(); // ensures initialization in case mm connected after Simulate
