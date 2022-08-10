@@ -73,7 +73,7 @@ RecordablesMap< error_neuron >::create()
 nest::error_neuron::Parameters_::Parameters_()
   : tau_m_( 10.0 )                                  // ms
   , c_m_( 250.0 )                                   // pF
-  , E_L_( -70.0 )                                   // mV
+  , E_L_( 0.0 )                                   // mV
   , I_e_( 0.0 )                                     // pA
   , V_min_( -std::numeric_limits< double >::max() ) // relative E_L_-55.0-E_L_
   , t_start_ls_( 0.0 )                               // ms
