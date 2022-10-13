@@ -639,4 +639,4 @@ EpropConnection< targetidentifierT >::set_status( const DictionaryDatum& d,
 
 } // of namespace nest
 
-#endif // of #ifndef URBANCZIK_CONNECTION_H
+#endif // of #ifndef EPROP_CONNECTION_H
