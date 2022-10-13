@@ -143,6 +143,12 @@ public:
     {
       return invalid_port;
     }
+    port
+    handles_test_event( DSSpikeEvent&, rport )
+    {
+      return invalid_port;
+    }
+
   };
 
   void
