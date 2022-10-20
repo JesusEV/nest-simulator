@@ -575,6 +575,7 @@ const Name u_bar_minus( "u_bar_minus" );
 const Name u_bar_plus( "u_bar_plus" );
 const Name u_ref_squared( "u_ref_squared" );
 const Name update_interval( "update_interval" );
+const Name update_interval_reset( "update_interval_reset" );
 const Name update_time_limit( "update_time_limit" );
 const Name upper_right( "upper_right" );
 const Name use_adam( "use_adam" );

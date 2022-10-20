@@ -78,6 +78,7 @@ nest::iaf_psc_delta_eprop::Parameters_::Parameters_()
   , V_th_( -55.0 - E_L_ )                           // mV, rel to E_L_
   , V_min_( -std::numeric_limits< double >::max() ) // relative E_L_-55.0-E_L_
   , V_reset_( -70.0 - E_L_ )                        // mV, rel to E_L_
+  , update_interval_reset_( true )
   , with_refr_input_( false )
 {
 }
@@ -105,6 +106,7 @@ nest::iaf_psc_delta_eprop::Parameters_::get( DictionaryDatum& d ) const
   def< double >( d, names::C_m, c_m_ );
   def< double >( d, names::tau_m, tau_m_ );
   def< double >( d, names::t_ref, t_ref_ );
+  def< bool >( d, names::update_interval_reset, update_interval_reset_ );
   def< bool >( d, names::refractory_input, with_refr_input_ );
 }
 
@@ -166,6 +168,7 @@ nest::iaf_psc_delta_eprop::Parameters_::set( const DictionaryDatum& d, Node* nod
   }
 
   updateValueParam< bool >( d, names::refractory_input, with_refr_input_, node );
+  updateValueParam< bool >( d, names::update_interval_reset, update_interval_reset_, node );
 
   return delta_EL;
 }
@@ -301,7 +304,7 @@ nest::iaf_psc_delta_eprop::update( Time const& origin,
   for ( long lag = from; lag < to; ++lag )
   {
     // DEBUG: added reset after each T to be compatible with tf code
-    if ( ( origin.get_steps() + lag - 1 ) % static_cast< int >( ( get_update_interval() / h) ) == 0 )
+    if ( ( origin.get_steps() + lag - 1 ) % static_cast< int >( ( get_update_interval() / h) ) == 0 && ( P_.update_interval_reset_ ) )
     {
       S_.y3_ = 0.0;
       S_.r_ = 0;

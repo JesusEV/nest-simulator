@@ -210,6 +210,8 @@ private:
     /** reset value of the membrane potential */
     double V_reset_;
 
+    bool update_interval_reset_;
+
     bool with_refr_input_; //!< spikes arriving during refractory period are
                            //!< counted
 

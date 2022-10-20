@@ -599,6 +599,7 @@ extern const Name u_bar_minus;
 extern const Name u_bar_plus;
 extern const Name u_ref_squared;
 extern const Name update_interval;
+extern const Name update_interval_reset;
 extern const Name update_time_limit;
 extern const Name upper_right;
 extern const Name use_adam;
