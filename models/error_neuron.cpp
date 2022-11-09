@@ -78,6 +78,7 @@ nest::error_neuron::Parameters_::Parameters_()
   , V_min_( -std::numeric_limits< double >::max() ) // relative E_L_-55.0-E_L_
   , t_start_ls_( 0.0 )                               // ms
   , regression_( true )
+  , update_interval_reset_( true )
 {
 }
 
@@ -104,6 +105,7 @@ nest::error_neuron::Parameters_::get(
   def< double >( d, names::tau_m, tau_m_ );
   def< double >( d, names::start, t_start_ls_ );
   def< bool >( d, names::regression, regression_ );
+  def< bool >( d, names::update_interval_reset, update_interval_reset_ );
 }
 
 double
@@ -123,6 +125,7 @@ nest::error_neuron::Parameters_::set(
   updateValue< double >( d, names::tau_m, tau_m_ );
   updateValue< double >( d, names::start, t_start_ls_ );
   updateValue< bool >( d, names::regression, regression_ );
+  updateValue< bool >( d, names::update_interval_reset, update_interval_reset_ );
 
   if ( c_m_ <= 0 )
   {
@@ -258,7 +261,7 @@ nest::error_neuron::update_( Time const& origin,
   {
     // DEBUG: added reset after each T to be compatible with tf code
     int t_mod_T = ( origin.get_steps() + lag - 3 ) % get_update_interval_steps();
-    if ( t_mod_T == 0 )
+    if ( t_mod_T == 0 && ( P_.update_interval_reset_ ) )
     {
       S_.y3_ = 0.0;
       B_.spikes_.clear();   // includes resize

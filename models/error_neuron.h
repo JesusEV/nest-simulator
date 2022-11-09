@@ -155,6 +155,7 @@ private:
     double V_min_;  // Lower bound relative to resting potential.
     double t_start_ls_; // time after which a learning signal is sent to the recurrent neurons
     bool regression_; // regression if true else classification
+    bool update_interval_reset_;
     Parameters_(); //!< Sets default parameter values
 
     void get( DictionaryDatum& ) const; //!< Store current values in dictionary
