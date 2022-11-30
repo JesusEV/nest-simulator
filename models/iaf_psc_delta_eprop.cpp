@@ -300,11 +300,13 @@ nest::iaf_psc_delta_eprop::update( Time const& origin,
   assert( to >= 0 && ( delay ) from < kernel().connection_manager.get_min_delay() );
   assert( from < to );
 
+  long steps = origin.get_steps();
   const double h = Time::get_resolution().get_ms();
   for ( long lag = from; lag < to; ++lag )
   {
+    long steps_including_lag = steps + lag;
     // DEBUG: added reset after each T to be compatible with tf code
-    if ( ( origin.get_steps() + lag - 1 ) % static_cast< int >( ( get_update_interval() / h) ) == 0 && ( P_.update_interval_reset_ ) )
+    if ( ( steps_including_lag - 1 ) % static_cast< int >( ( get_update_interval() / h) ) == 0 && ( P_.update_interval_reset_ ) )
     {
       S_.y3_ = 0.0;
       S_.r_ = 0;
@@ -333,13 +335,14 @@ nest::iaf_psc_delta_eprop::update( Time const& origin,
     // lower bound of membrane potential
     //S_.y3_ = ( S_.y3_ < P_.V_min_ ? P_.V_min_ : S_.y3_ );
     // threshold crossing
+    Time const time_step = Time::step( steps_including_lag + 1 );
     if ( ( S_.y3_ >= P_.V_th_ ) && ( S_.r_ == 0 ) )
     {
       // indicate that the membrane potential has to be reset in next step
       V_.reset_next_step_ = true;
       // note spike time and send spike
-      set_spiketime( Time::step( origin.get_steps() + lag + 1 ) );
-      write_spike_history( Time::step( origin.get_steps() + lag + 1 ) );
+      set_spiketime( time_step );
+      write_spike_history( time_step );
       SpikeEvent se;
       kernel().event_delivery_manager.send( *this, se, lag );
     }
@@ -347,20 +350,20 @@ nest::iaf_psc_delta_eprop::update( Time const& origin,
     {
       // if neuron is refractory, the preudo derivative is set to zero
       // (achived by setting V_m = 0)
-      write_eprop_history( Time::step( origin.get_steps() + lag + 1 ), P_.V_th_, P_.V_th_ );
+      write_eprop_history( time_step, P_.V_th_, P_.V_th_ );
       --S_.r_;
     }
     else
     {
       // if neuron is not refractory, write hist with value for pseudo derivative
-      write_eprop_history( Time::step( origin.get_steps() + lag + 1 ), S_.y3_ - P_.V_th_, P_.V_th_ );
+      write_eprop_history( time_step, S_.y3_ - P_.V_th_, P_.V_th_ );
     }
 
     // set new input current
     S_.y0_ = B_.currents_.get_value( lag );
 
     // voltage logging
-    B_.logger_.record_data( origin.get_steps() + lag );
+    B_.logger_.record_data( steps_including_lag );
   }
 }
 
