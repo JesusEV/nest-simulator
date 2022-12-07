@@ -25,6 +25,7 @@
 
 // C++ includes:
 #include <cmath>
+#include <typeinfo>
 
 // Includes from nestkernel:
 #include "common_synapse_properties.h"
@@ -236,10 +237,10 @@ EpropConnection< targetidentifierT >::send( Event& e,
   // spikes that do not meet the following condition do not need to be delivered because they would
   // arrive during the reset period (-> at the end of a training interval T) of the postsynaptic neuron
   // However, for the readout neurons they are taken into account.
-  if ( ! ( ( Time( Time::ms( t_spike ) ).get_steps() % Time( Time::ms( update_interval_ ) ).get_steps()
-      - Time( Time::ms( dendritic_delay ) ).get_steps() == 0 )
-          && ( ! target->is_eprop_readout() ) ) )
+
+  if ( ((std::fmod(t_spike, update_interval_) - dendritic_delay ) != 0.0 ) or target->is_eprop_readout() )
   {
+
     // store times of incoming spikes to enable computation of eligibility trace
     pre_syn_spike_times_.push_back( t_spike );
 
@@ -253,11 +254,12 @@ EpropConnection< targetidentifierT >::send( Event& e,
       std::deque< histentry_eprop >::iterator finish;
 
       // DEBUG II: the learning_period_counter corresponds to the variable t of the adam optimizer
-      int learning_period_counter_ = ( int ) floor( ( t_spike - dt ) / update_interval_ )  / batch_size_;
+      //
+      double t_spike_per_update_interval = floor( ( t_spike - dt ) / update_interval_ );
+      int learning_period_counter_ = ( int ) t_spike_per_update_interval  / batch_size_;
 
       //DEBUG: added 2*delay to be in sync with TF code
-      double t_update_ = ( floor( ( t_spike - dt ) / update_interval_ ) ) * update_interval_ + 2.0 *
-        dendritic_delay;
+      double t_update_ = t_spike_per_update_interval * update_interval_ + 2.0 * dendritic_delay;
       double grad = 0.0;
       if (target->is_eprop_readout() )  // if target is a readout neuron
       {
