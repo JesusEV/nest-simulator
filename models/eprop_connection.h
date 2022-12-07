@@ -473,8 +473,12 @@ EpropConnection< targetidentifierT >::optimize(int learning_period_counter_,
         else // gradient descent
         {
           // here we do not divide by the number of recall steps (see tf implementation)
-          sum_grads /= batch_size_;
-          weight_ -= learning_rate_ * sum_grads;
+          for ( ; last_learning_period_ < learning_period_counter_; ++last_learning_period_ )
+          {
+            sum_grads /= batch_size_;
+            weight_ -= learning_rate_ * sum_grads;
+            sum_grads = 0.0;
+          }
         }
         // check whether the new weight is between Wmin and Wmax
         /*
