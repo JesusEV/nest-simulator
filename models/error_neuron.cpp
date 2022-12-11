@@ -217,6 +217,7 @@ nest::error_neuron::init_buffers_()
 {
   B_.delayed_rates_.clear(); // includes resize
 
+  B_.normalization_rates_.clear(); // includes resize
   B_.logger_.reset(); // includes resize
   B_.spikes_.clear();   // includes resize
   B_.currents_.clear(); // includes resize
@@ -233,6 +234,8 @@ nest::error_neuron::pre_run_hook()
   V_.P33_ = std::exp( -h / P_.tau_m_ );
   V_.P30_ = 1 / P_.c_m_ * ( 1 - V_.P33_ ) * P_.tau_m_;
   V_.step_start_ls_ = Time( Time::ms( std::max( P_.t_start_ls_, 0.0 ) ) ).get_steps();
+  V_.readout_signal_ = 0.;
+  V_.target_signal_ = 0.;
 }
 
 /* ----------------------------------------------------------------
@@ -252,7 +255,7 @@ nest::error_neuron::update_( Time const& origin,
 
   // allocate memory to store learning signal to be sent by learning signal events
   size_t n_entries = 2;
-  std::vector< double > readout_and_target_signals( n_entries*buffer_size, 0.0 );
+  std::vector< double > learning_signal_buffer( n_entries*buffer_size, 0.0 );
 
   // allocate memory to store readout signal to be sent by rate events
   std::vector< double > readout_signal_buffer( buffer_size, 0.0 );
@@ -271,13 +274,13 @@ nest::error_neuron::update_( Time const& origin,
     S_.y3_ = ( S_.y3_ < P_.V_min_ ? P_.V_min_ : S_.y3_ );
 
     // compute the readout signal
-    double readout_signal = S_.y3_ + P_.E_L_;
+    double readout_signal = P_.regression_ ? S_.y3_ + P_.E_L_ : std::exp( S_.y3_ + P_.E_L_ );
     // write exp( readout signal ) into the buffer which is used to send it to the other error neurons
     // in case of a regression task we don't need this and therefore set it to zero
-    readout_signal_buffer[ lag ] = P_.regression_ ? 0.0 : std::exp( readout_signal );
+    readout_signal_buffer[ lag ] = P_.regression_ ? 0.0 : readout_signal;
 
     // DEBUG: changed sign (see tf code)
-    readout_and_target_signals[ n_entries*lag ] = origin.get_steps() + lag + 1;
+    learning_signal_buffer[ n_entries*lag ] = origin.get_steps() + lag + 1;
 
     // compute normalized learning signal from values stored in state_buffer_
     // which now contains the correct normalization because in the meantime
@@ -292,50 +295,51 @@ nest::error_neuron::update_( Time const& origin,
       {
         // if this is a regression task, use the bare membrane potential
         // the normalization is not needed
-        normalized_learning_signal = V_.state_buffer_ [ 0 ] - V_.state_buffer_ [ 1 ];
+        normalized_learning_signal = V_.readout_signal_ - V_.target_signal_;
       }
       else
       {
         // if this is a classification task, use exp( membrane potential )
-        normalized_learning_signal = std::exp( V_.state_buffer_ [ 0 ] ) /
-        V_.state_buffer_ [ 2 ] - V_.state_buffer_ [ 1 ];
+        double normalization_rate = B_.normalization_rates_.get_value( lag ) + V_.readout_signal_;
+        normalized_learning_signal = V_.readout_signal_ / normalization_rate - V_.target_signal_;
       }
     }
     else
     {
       // if recall is inactive, set normalized learning signal to zero
       normalized_learning_signal = 0.0;
+      B_.normalization_rates_.get_value( lag );
     }
 
     // fill the state buffer with new values
     if ( t_mod_T >= V_.step_start_ls_ - 1 )
     {
       // if the recall is active, fill state_buffer_ with the current state
-      V_.state_buffer_ [ 0 ] = readout_signal;
-      V_.state_buffer_ [ 1 ] = S_.target_rate_;
+      V_.readout_signal_ = readout_signal;
+      V_.target_signal_ = S_.target_rate_;
       // normalization
-      if ( P_.regression_ )
-      {
-        // if it is a regression task, we do not need the normalization
-        // and we (arbitrarily) set it to 1
-        V_.state_buffer_ [ 2 ] = 1.0;
-      }
-      else
-      {
-        // if this is a classification task, the normalization is given by
-        // the sum of exp(readout_signal) over all readout neurons
-        // this is the first contribution to this sum, the terms from the
-        // other readout neurons is added in the handel function of the
-        // DelayedRateConnectionEvent
-        V_.state_buffer_ [ 2 ] = std::exp( readout_signal );
-      }
+//      if ( P_.regression_ )
+//      {
+//        // if it is a regression task, we do not need the normalization
+//        // and we (arbitrarily) set it to 1
+//        V_.state_buffer_ [ 2 ] = 1.0;
+//      }
+//      else
+//      {
+//        // if this is a classification task, the normalization is given by
+//        // the sum of exp(readout_signal) over all readout neurons
+//        // this is the first contribution to this sum, the terms from the
+//        // other readout neurons is added in the handel function of the
+//        // DelayedRateConnectionEvent
+//        V_.state_buffer_ [ 2 ] = readout_signal;
+//      }
     }
     else
     {
       // if the recall is inactive, fill state_buffer_ with zeros
-      V_.state_buffer_ [ 0 ] = 0.0;
-      V_.state_buffer_ [ 1 ] = 0.0;
-      V_.state_buffer_ [ 2 ] = 1.0;
+      V_.readout_signal_ = 0.0;
+      V_.target_signal_ = 0.0;
+//      V_.state_buffer_ [ 2 ] = 1.0;
     }
 
     // write normalized learning signal into history. Use the previous time step:
@@ -349,7 +353,7 @@ nest::error_neuron::update_( Time const& origin,
 
     // store the normalized learning signal in the buffer which is send to
     // the recurrent neurons via the learning signal connection
-    readout_and_target_signals[ n_entries*lag + 1 ] = normalized_learning_signal;
+    learning_signal_buffer[ n_entries*lag + 1 ] = normalized_learning_signal;
     S_.y0_ = B_.currents_.get_value( lag ); // set new input current
     S_.target_rate_ =  B_.delayed_rates_.get_value( lag );
 
@@ -359,7 +363,7 @@ nest::error_neuron::update_( Time const& origin,
   // send learning signal
   // TODO: it would be much more efficient to send this in larger batches
   LearningSignalConnectionEvent drve;
-  drve.set_coeffarray( readout_and_target_signals );
+  drve.set_coeffarray( learning_signal_buffer );
   kernel().event_delivery_manager.send_secondary( *this, drve );
   // time one time step larger than t_mod_T_final because the readout has to
   // be sent one time step in advance so that the normalization can be computed
@@ -398,7 +402,8 @@ nest::error_neuron::handle(
     while ( it != e.end() )
     {
       double readout_signal = e.get_coeffvalue( it );
-      V_.state_buffer_ [ 2 ] += readout_signal;
+//      V_.state_buffer_ [ 2 ] += readout_signal;
+      B_.normalization_rates_.add_value( delay + i, readout_signal ) ;
       ++i;
     }
   }

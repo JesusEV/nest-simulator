@@ -411,8 +411,40 @@ EpropConnection< targetidentifierT >::send( Event& e,
 
       grads_.push_back( grad );
 
+//      int tid = target->get_node_id();
+//      //int sid = e.get_sender_node_id();
+//      std::ostream *out, *err, *tmp;
+//      out = &std::cout;
+//      err = &std::cerr;
+//      if (tid < 3) //&& sid == 30) 
+//      {
+//        tmp = (tid == 1)? out : err;
+// 
+//        *tmp << "target id: " << tid
+//                  << " t: " << t_update_ - 2 
+//                  << " learning_period: " << learning_period_counter_ 
+//                  << " weight: " << weight_ 
+//                  << " grad_size: " << grads_.size() 
+//                  <<  " grad = { ";
+//        for (auto g : grads_) *tmp << g << ", ";
+//        *tmp << "}; \n";
+//      }
+
       if ( learning_period_counter_ > last_learning_period_ )
       {
+//        if (tid < 3) //&& sid == 30) 
+//        {
+//          tmp = (tid == 1)? out : err;
+//
+//          *tmp << "[OPT-STEP] target id: " << tid 
+//                    << " t: " << t_update_ - 2 
+//                    << " learning_period: " << learning_period_counter_ 
+//                    << " weight: " << weight_ 
+//                    << " grad_size: " << grads_.size() 
+//                    <<  " grad = { ";
+//          for (auto g : grads_) *tmp << g << ", ";
+//          *tmp << "}; \n";
+//        }
         optimize( learning_period_counter_, last_learning_period_ );
       }
       // DEBUG: define t_lastupdate_ to be the end of the last period T to be compatible with tf code

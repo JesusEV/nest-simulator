@@ -198,6 +198,7 @@ private:
 
     // buffer for rate vector received by DelayRateConnection
     RingBuffer delayed_rates_;
+    RingBuffer normalization_rates_;
 
     /** buffers and summs up incoming spikes/currents */
     RingBuffer spikes_;
@@ -225,7 +226,9 @@ private:
     // normalization (3rd) so that the normalized learning signal can be computed once the
     // membrane potential of the other readout neurons arrived.
     // TODO: make propper buffer so that it can be used with delay != 1ms
-    double state_buffer_ [ 3 ] = { 0.0, 0.0, 1.0 };
+    //double state_buffer_ [ 3 ] = { 0.0, 0.0, 1.0 };
+    double readout_signal_;
+    double target_signal_;
    };
 
   /**
