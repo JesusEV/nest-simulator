@@ -1,5 +1,5 @@
 /*
- *  eprop_connection.h
+ *  eprop_synapse.h
  *
  *  This file is part of NEST.
  *
@@ -20,8 +20,8 @@
  *
  */
 
-#ifndef EPROP_CONNECTION_H
-#define EPROP_CONNECTION_H
+#ifndef EPROP_SYNAPSE_H
+#define EPROP_SYNAPSE_H
 
 // C++ includes:
 #include <cmath>
@@ -42,7 +42,7 @@ namespace nest
 {
 
 /** @BeginDocumentation
-Name: eprop_connection - Synapse type for ... TODO
+Name: eprop_synapse - Synapse type for ... TODO
 
 Description:
 
@@ -84,26 +84,114 @@ SeeAlso: stdp_synapse, aeif_psc_delta_clopath, hh_psc_alpha_clopath
 */
 // connections are templates of target identifier type (used for pointer /
 // target index addressing) derived from generic connection template
+
+/**
+ * Class containing the common properties for all synapses of type eprop
+ * connection.
+ */
+class EpropCommonProperties : public CommonSynapseProperties
+{
+public:
+  /**
+   * Default constructor.
+   * Sets all property values to defaults.
+   */
+  EpropCommonProperties();
+
+  /**
+   * Get all properties and put them into a dictionary.
+   */
+  void get_status( DictionaryDatum& d ) const;
+
+  /**
+   * Set properties from the values given in dictionary.
+   */
+  void set_status( const DictionaryDatum& d, ConnectorModel& cm );
+
+  double update_interval_;
+  long batch_size_;
+  double recall_duration_;
+  double learning_rate_; 
+  double target_firing_rate_;
+  double rate_reg_;
+  bool use_adam_; 
+  double beta1_adam_; 
+  double beta2_adam_; 
+  double epsilon_adam_; 
+};
+
+EpropCommonProperties::EpropCommonProperties()
+  : CommonSynapseProperties()
+  , learning_rate_( 0.0001 )
+  , update_interval_( 1000.0 )
+  , rate_reg_( 0. )
+  , target_firing_rate_( 10. )
+  , batch_size_( 1. )
+  , beta1_adam_( 0.9 )
+  , beta2_adam_( 0.999 )
+  , epsilon_adam_( 1.0e-8 )
+  , recall_duration_( 1. )  // in ms
+  , use_adam_( false )
+{
+}
+
+void
+EpropCommonProperties::get_status( DictionaryDatum& d ) const
+{
+  CommonSynapseProperties::get_status( d );
+  def< double >( d, names::learning_rate, learning_rate_ );
+  def< double >( d, names::update_interval, update_interval_ );
+  def< double >( d, names::rate_reg, rate_reg_ );
+  def< double >( d, names::target_firing_rate, target_firing_rate_ );
+  def< double >( d, names::batch_size, batch_size_);
+  def< double >( d, names::beta1_adam, beta1_adam_);
+  def< double >( d, names::beta2_adam, beta2_adam_);
+  def< double >( d, names::epsilon_adam, epsilon_adam_);
+  def< double >( d, names::recall_duration, recall_duration_);
+  def< bool >( d, names::use_adam, use_adam_);
+}
+
+void
+EpropCommonProperties::set_status( const DictionaryDatum& d, ConnectorModel& cm )
+{
+  CommonSynapseProperties::set_status( d, cm );
+  updateValue< double >( d, names::learning_rate, learning_rate_ );
+  updateValue< double >( d, names::update_interval, update_interval_ );
+  updateValue< double >( d, names::rate_reg, rate_reg_ );
+  updateValue< double >( d, names::target_firing_rate, target_firing_rate_ );
+  updateValue< double >( d, names::batch_size, batch_size_);
+  updateValue< double >( d, names::beta1_adam, beta1_adam_);
+  updateValue< double >( d, names::beta2_adam, beta2_adam_);
+  updateValue< double >( d, names::epsilon_adam, epsilon_adam_);
+  updateValue< double >( d, names::recall_duration, recall_duration_);
+  updateValue< bool >( d, names::use_adam, use_adam_);
+
+  if ( update_interval_ <= 0.0 )
+  {
+    throw BadProperty( "The synaptic update interval must be greater than zero." );
+  }
+}
+
 template < typename targetidentifierT >
-class EpropConnection : public Connection< targetidentifierT >
+class eprop_synapse : public Connection< targetidentifierT >
 {
 
 public:
-  typedef CommonSynapseProperties CommonPropertiesType;
+  typedef EpropCommonProperties CommonPropertiesType;
   typedef Connection< targetidentifierT > ConnectionBase;
 
   /**
    * Default Constructor.
    * Sets default values for all parameters. Needed by GenericConnectorModel.
    */
-  EpropConnection();
+  eprop_synapse();
 
 
   /**
    * Copy constructor.
    * Needs to be defined properly in order for GenericConnector to work.
    */
-  EpropConnection( const EpropConnection& );
+  eprop_synapse( const eprop_synapse& );
 
   // Explicitly declare all methods inherited from the dependent base
   // ConnectionBase. This avoids explicit name prefixes in all places these
@@ -129,9 +217,9 @@ public:
    * \param e The event to send
    * \param cp common properties of all synapses (empty).
    */
-  void send( Event& e, thread t, const CommonSynapseProperties& cp );
+  void send( Event& e, thread t, const EpropCommonProperties& cp );
 
-  void optimize( int learning_period_counter_, int &last_learning_period_ );
+  void optimize( int learning_period_counter_, int &last_learning_period_, const EpropCommonProperties& cp);
 
   class ConnTestDummyNode : public ConnTestDummyNodeBase
   {
@@ -185,8 +273,6 @@ public:
 private:
   // data members of each connection
   double weight_;
-  double learning_rate_;
-  double update_interval_;
   double Wmin_;
   double Wmax_;
 
@@ -195,8 +281,6 @@ private:
   double t_nextupdate_;
   int last_learning_period_;
   double keep_traces_;
-  double rate_reg_;
-  double target_firing_rate_;
   double tau_low_pass_e_tr_; // time constant for low pass filtering of the eligibility trace
   double propagator_low_pass_; // exp( -dt / tau_low_pass_e_tr_ )
   // TODO: Find a more efficient way to deal with a recall task, i.e. store eprop history only
@@ -204,15 +288,9 @@ private:
   // implementation of get_eprop_history, i.e. binary search.
 
   std::vector< double > pre_syn_spike_times_;
-  double batch_size_;
   double m_adam_;  // auxiliary variable for adam optimizer
   double v_adam_;  // auxiliary variable for adam optimizer
-  double beta1_adam_;
-  double beta2_adam_;
-  double epsilon_adam_;
-  double recall_duration_;
   std::vector< double > grads_;  // vector that stores the gradients of one batch
-  double use_adam_;
 };
 
 
@@ -224,9 +302,9 @@ private:
  */
 template < typename targetidentifierT >
 inline void
-EpropConnection< targetidentifierT >::send( Event& e,
+eprop_synapse< targetidentifierT >::send( Event& e,
   thread t,
-  const CommonSynapseProperties& )
+  const EpropCommonProperties& cp)
 {
   double t_spike = e.get_stamp().get_ms();
   // use accessor functions (inherited from Connection< >) to obtain delay and
@@ -238,15 +316,25 @@ EpropConnection< targetidentifierT >::send( Event& e,
   // arrive during the reset period (-> at the end of a training interval T) of the postsynaptic neuron
   // However, for the readout neurons they are taken into account.
 
-  if ( ((std::fmod(t_spike, update_interval_) - dendritic_delay ) != 0.0 ) or target->is_eprop_readout() )
+  if ( ((std::fmod(t_spike, cp.update_interval_) - dendritic_delay ) != 0.0 ) or target->is_eprop_readout() )
   {
 
     // store times of incoming spikes to enable computation of eligibility trace
     pre_syn_spike_times_.push_back( t_spike );
-
+    
+    // DEBUG: find a more suitable place for the following t_nextupdate initialization 
+    if (t_nextupdate_ == 0)
+    {
+        t_nextupdate_ = cp.update_interval_ + 2.0 * get_delay();
+    }
     // do update only if this is the first spike in a new inverval T
     if ( t_spike >= t_nextupdate_ )
     {
+
+      if (t_nextupdate_ == 0)
+      {
+          t_nextupdate_ = cp.update_interval_ + 2.0 * get_delay();
+      }
       // retrive time step of simulation
       double const dt = Time::get_resolution().get_ms();
       // get spike history in relevant range (t1, t2] from post-synaptic neuron
@@ -255,11 +343,11 @@ EpropConnection< targetidentifierT >::send( Event& e,
 
       // DEBUG II: the learning_period_counter corresponds to the variable t of the adam optimizer
       //
-      double t_spike_per_update_interval = floor( ( t_spike - dt ) / update_interval_ );
-      int learning_period_counter_ = ( int ) t_spike_per_update_interval  / batch_size_;
+      double t_spike_per_update_interval = floor( ( t_spike - dt ) / cp.update_interval_ );
+      int learning_period_counter_ = ( int ) t_spike_per_update_interval  / cp.batch_size_;
 
       //DEBUG: added 2*delay to be in sync with TF code
-      double t_update_ = t_spike_per_update_interval * update_interval_ + 2.0 * dendritic_delay;
+      double t_update_ = t_spike_per_update_interval * cp.update_interval_ + 2.0 * dendritic_delay;
       double grad = 0.0;
       if (target->is_eprop_readout() )  // if target is a readout neuron
       {
@@ -271,7 +359,7 @@ EpropConnection< targetidentifierT >::send( Event& e,
         // be assiged to. finish should point to the last entry of the current update interval.
         target->get_eprop_history(
             pre_syn_spike_times_[0] + dendritic_delay,            // time for start
-            t_lastupdate_ + update_interval_ + dendritic_delay,   // time for finish
+            t_lastupdate_ + cp.update_interval_ + dendritic_delay,   // time for finish
             t_lastupdate_ + dendritic_delay,  // used to register this update
             t_update_ + dendritic_delay,      // used to register this update
             &start,
@@ -309,7 +397,7 @@ EpropConnection< targetidentifierT >::send( Event& e,
         // be assiged to. finish should point to the last entry of the current update interval.
         target->get_eprop_history(
             pre_syn_spike_times_[0] + dendritic_delay,  // time for start
-            t_lastupdate_ + update_interval_,           // time for finish
+            t_lastupdate_ + cp.update_interval_,           // time for finish
             t_lastupdate_,    // used to register this update
             t_update_,        // used to register this update
             &start,
@@ -383,21 +471,21 @@ EpropConnection< targetidentifierT >::send( Event& e,
         // are divided by the recall duration. We have to investigte how this affects the regression
         // task.
         // divide by the number of recall steps to be compatible with the tf implementation
-        grad /= Time( Time::ms( recall_duration_ ) ).get_steps();
+        grad /= Time( Time::ms( cp.recall_duration_ ) ).get_steps();
         // firing rate regularization
         std::deque< double >::iterator start_spk;
         std::deque< double >::iterator finish_spk;
         target->get_spike_history( t_lastupdate_,
-            t_lastupdate_ + update_interval_,
+            t_lastupdate_ + cp.update_interval_,
             &start_spk,
             &finish_spk );
         int nspikes = std::distance(start_spk, finish_spk);
         // compute average firing rate since last update. factor 1000 to convert into Hz
-        double av_firing_rate = nspikes / update_interval_;
+        double av_firing_rate = nspikes / cp.update_interval_;
         // Eq.(56) TODO: this includes a factor 2.0 which is lacking in the derivation in the
         // manuscript.
-        grad += 2. * rate_reg_ * ( av_firing_rate - target_firing_rate_ / 1000.) * sum_elig_tr * dt /
-          update_interval_;
+        grad += 2. * cp.rate_reg_ * ( av_firing_rate - cp.target_firing_rate_ / 1000.) * sum_elig_tr * dt /
+          cp.update_interval_;
         // TODO: is the following line needed? (dt = 1.0 anyway)
         grad *= dt;
       }
@@ -411,46 +499,14 @@ EpropConnection< targetidentifierT >::send( Event& e,
 
       grads_.push_back( grad );
 
-//      int tid = target->get_node_id();
-//      //int sid = e.get_sender_node_id();
-//      std::ostream *out, *err, *tmp;
-//      out = &std::cout;
-//      err = &std::cerr;
-//      if (tid < 3) //&& sid == 30) 
-//      {
-//        tmp = (tid == 1)? out : err;
-// 
-//        *tmp << "target id: " << tid
-//                  << " t: " << t_update_ - 2 
-//                  << " learning_period: " << learning_period_counter_ 
-//                  << " weight: " << weight_ 
-//                  << " grad_size: " << grads_.size() 
-//                  <<  " grad = { ";
-//        for (auto g : grads_) *tmp << g << ", ";
-//        *tmp << "}; \n";
-//      }
-
       if ( learning_period_counter_ > last_learning_period_ )
       {
-//        if (tid < 3) //&& sid == 30) 
-//        {
-//          tmp = (tid == 1)? out : err;
-//
-//          *tmp << "[OPT-STEP] target id: " << tid 
-//                    << " t: " << t_update_ - 2 
-//                    << " learning_period: " << learning_period_counter_ 
-//                    << " weight: " << weight_ 
-//                    << " grad_size: " << grads_.size() 
-//                    <<  " grad = { ";
-//          for (auto g : grads_) *tmp << g << ", ";
-//          *tmp << "}; \n";
-//        }
-        optimize( learning_period_counter_, last_learning_period_ );
+        optimize( learning_period_counter_, last_learning_period_, cp );
       }
       // DEBUG: define t_lastupdate_ to be the end of the last period T to be compatible with tf code
       t_lastupdate_ = t_update_;
-      t_nextupdate_ += ( floor( ( t_spike - t_nextupdate_ ) / update_interval_ ) + 1 ) *
-        update_interval_;
+      t_nextupdate_ += ( floor( ( t_spike - t_nextupdate_ ) / cp.update_interval_ ) + 1 ) *
+        cp.update_interval_;
       // clear history of presynaptic spike because we don't need them any more
       pre_syn_spike_times_.clear();
       pre_syn_spike_times_.push_back( t_spike );
@@ -473,8 +529,8 @@ EpropConnection< targetidentifierT >::send( Event& e,
 
 template < typename targetidentifierT >
 inline void
-EpropConnection< targetidentifierT >::optimize(int learning_period_counter_,
-    int &last_learning_period_ )
+eprop_synapse< targetidentifierT >::optimize(int learning_period_counter_,
+    int &last_learning_period_, const EpropCommonProperties& cp)
 {
         double sum_grads = 0.0;
         for ( auto gr : grads_ )
@@ -482,21 +538,21 @@ EpropConnection< targetidentifierT >::optimize(int learning_period_counter_,
           sum_grads += gr;
         }
 
-        if ( use_adam_ == 1.0 ) // use adam optimizer
+        if ( cp.use_adam_ == 1.0 ) // use adam optimizer
         {
           // divide by batch size to be compatible with TF code
-          sum_grads /= batch_size_;
+          sum_grads /= cp.batch_size_;
           // for loop to advance the state of the adam optimizer
           for ( ; last_learning_period_ < learning_period_counter_; ++last_learning_period_ )
           {
-            m_adam_ = beta1_adam_ * m_adam_ + ( 1.0 - beta1_adam_ ) * sum_grads;
-            v_adam_ = beta2_adam_ * v_adam_ + ( 1.0 - beta2_adam_ ) * sum_grads * sum_grads;
+            m_adam_ = cp.beta1_adam_ * m_adam_ + ( 1.0 - cp.beta1_adam_ ) * sum_grads;
+            v_adam_ = cp.beta2_adam_ * v_adam_ + ( 1.0 - cp.beta2_adam_ ) * sum_grads * sum_grads;
             // last_learning_period_ + 1 in the following expression because the adam optimizer
             // starts counting from 1, see Kingma and Lai Ba (2015)
-            double alpha_t = learning_rate_ * std::sqrt(
-                1.0 - std::pow( beta2_adam_, last_learning_period_ + 1 ) )
-              / ( 1.0 - std::pow( beta1_adam_, last_learning_period_ + 1 ) );
-            double weight_delta_ = - alpha_t * m_adam_ / ( std::sqrt( v_adam_ ) + epsilon_adam_ );
+            double alpha_t = cp.learning_rate_ * std::sqrt(
+                1.0 - std::pow( cp.beta2_adam_, last_learning_period_ + 1 ) )
+              / ( 1.0 - std::pow( cp.beta1_adam_, last_learning_period_ + 1 ) );
+            double weight_delta_ = - alpha_t * m_adam_ / ( std::sqrt( v_adam_ ) + cp.epsilon_adam_ );
             weight_ += weight_delta_;
             // if we cycle through the loop more than once, this means that there were learning
             // periods with vanishing gradients. Therefore, we have to set sum_grads to zero for the
@@ -509,8 +565,8 @@ EpropConnection< targetidentifierT >::optimize(int learning_period_counter_,
           // here we do not divide by the number of recall steps (see tf implementation)
           for ( ; last_learning_period_ < learning_period_counter_; ++last_learning_period_ )
           {
-            sum_grads /= batch_size_;
-            weight_ -= learning_rate_ * sum_grads;
+            sum_grads /= cp.batch_size_;
+            weight_ -= cp.learning_rate_ * sum_grads;
             sum_grads = 0.0;
           }
         }
@@ -531,11 +587,9 @@ EpropConnection< targetidentifierT >::optimize(int learning_period_counter_,
 }
 
 template < typename targetidentifierT >
-EpropConnection< targetidentifierT >::EpropConnection()
+eprop_synapse< targetidentifierT >::eprop_synapse()
   : ConnectionBase()
   , weight_( 1.0 )
-  , learning_rate_( 0.0001 )
-  , update_interval_( 1000.0 )
   , Wmin_( 0.0 )
   , Wmax_( 100.0 )
   , t_lastspike_( 0.0 )
@@ -543,28 +597,18 @@ EpropConnection< targetidentifierT >::EpropConnection()
   , t_nextupdate_( 100.0 )
   , last_learning_period_( 0 )
   , keep_traces_( true )
-  , rate_reg_( 0. )
-  , target_firing_rate_( 10. )
   , tau_low_pass_e_tr_( 0.0 )
   , propagator_low_pass_( 0.0 )
-  , batch_size_( 1. )
   , m_adam_( 0.0 )
   , v_adam_( 0.0 )
-  , beta1_adam_( 0.9 )
-  , beta2_adam_( 0.999 )
-  , epsilon_adam_( 1.0e-8 )
-  , recall_duration_( 150.0 )  // in ms
-  , use_adam_( false )
 {
 }
 
 template < typename targetidentifierT >
-EpropConnection< targetidentifierT >::EpropConnection(
-  const EpropConnection< targetidentifierT >& rhs )
+eprop_synapse< targetidentifierT >::eprop_synapse(
+  const eprop_synapse< targetidentifierT >& rhs )
   : ConnectionBase( rhs )
   , weight_( rhs.weight_ )
-  , learning_rate_( rhs.learning_rate_ )
-  , update_interval_( rhs.update_interval_ )
   , Wmin_( rhs.Wmin_ )
   , Wmax_( rhs.Wmax_ )
   , t_lastspike_( rhs.t_lastspike_ )
@@ -572,74 +616,48 @@ EpropConnection< targetidentifierT >::EpropConnection(
   , t_nextupdate_( rhs.t_nextupdate_ )
   , last_learning_period_( rhs.last_learning_period_ )
   , keep_traces_( rhs.keep_traces_ )
-  , rate_reg_( rhs.rate_reg_ )
-  , target_firing_rate_( rhs.target_firing_rate_ )
   , tau_low_pass_e_tr_( rhs.tau_low_pass_e_tr_ )
   , propagator_low_pass_( rhs.propagator_low_pass_ )
-  , batch_size_( rhs.batch_size_ )
   , m_adam_( rhs.m_adam_ )
   , v_adam_( rhs.v_adam_ )
-  , beta1_adam_( rhs.beta1_adam_ )
-  , beta2_adam_( rhs.beta2_adam_ )
-  , epsilon_adam_( rhs.epsilon_adam_ )
-  , recall_duration_( rhs.recall_duration_ )
-  , use_adam_( rhs.use_adam_ )
 {
 }
 
 template < typename targetidentifierT >
 void
-EpropConnection< targetidentifierT >::get_status( DictionaryDatum& d ) const
+eprop_synapse< targetidentifierT >::get_status( DictionaryDatum& d ) const
 {
   ConnectionBase::get_status( d );
   def< double >( d, names::weight, weight_ );
-  def< double >( d, names::learning_rate, learning_rate_ );
-  def< double >( d, names::update_interval, update_interval_ );
   def< double >( d, names::Wmin, Wmin_ );
   def< double >( d, names::Wmax, Wmax_ );
   def< double >( d, names::keep_traces, keep_traces_ );
-  def< double >( d, names::rate_reg, rate_reg_ );
-  def< double >( d, names::target_firing_rate, target_firing_rate_ );
   def< double >( d, names::tau_decay, tau_low_pass_e_tr_ );
   def< long >( d, names::size_of, sizeof( *this ) );
-  def< double >( d, names::batch_size, batch_size_);
   def< double >( d, names::m_adam, m_adam_);
   def< double >( d, names::v_adam, v_adam_);
-  def< double >( d, names::beta1_adam, beta1_adam_);
-  def< double >( d, names::beta2_adam, beta2_adam_);
-  def< double >( d, names::epsilon_adam, epsilon_adam_);
-  def< double >( d, names::recall_duration, recall_duration_);
-  def< double >( d, names::use_adam, use_adam_);
 }
 
 template < typename targetidentifierT >
 void
-EpropConnection< targetidentifierT >::set_status( const DictionaryDatum& d,
+eprop_synapse< targetidentifierT >::set_status( const DictionaryDatum& d,
   ConnectorModel& cm )
 {
   ConnectionBase::set_status( d, cm );
   updateValue< double >( d, names::weight, weight_ );
-  updateValue< double >( d, names::learning_rate, learning_rate_ );
-  updateValue< double >( d, names::update_interval, update_interval_ );
   updateValue< double >( d, names::Wmin, Wmin_ );
   updateValue< double >( d, names::Wmax, Wmax_ );
   updateValue< double >( d, names::keep_traces, keep_traces_ );
-  updateValue< double >( d, names::rate_reg, rate_reg_ );
-  updateValue< double >( d, names::target_firing_rate, target_firing_rate_ );
   updateValue< double >( d, names::tau_decay, tau_low_pass_e_tr_ );
-  updateValue< double >( d, names::batch_size, batch_size_);
   updateValue< double >( d, names::m_adam, m_adam_);
   updateValue< double >( d, names::v_adam, v_adam_);
-  updateValue< double >( d, names::beta1_adam, beta1_adam_);
-  updateValue< double >( d, names::beta2_adam, beta2_adam_);
-  updateValue< double >( d, names::epsilon_adam, epsilon_adam_);
-  updateValue< double >( d, names::recall_duration, recall_duration_);
-  updateValue< double >( d, names::use_adam, use_adam_);
 
   const double h = Time::get_resolution().get_ms();
   // TODO: t_nextupdate and t_lastupdate should be initialized even if set_status is not called
   // DEBUG: added + delay to correct for the delay of the learning signal
-  t_nextupdate_ = update_interval_ + 2.0 * get_delay();
+  // DEBUG II: as EpropCommonProperties is not available here t_nextupdate
+  // correct initialization was moved temporarily to the send function. 
+  t_nextupdate_ = 0;// update_interval_ + 2.0 * get_delay();
   //DEBUG: shifted initial value of t_lastupdate to be in sync with TF code
   t_lastupdate_ = 2.0 * get_delay();
   // compute propagator for low pass filtering of eligibility trace
@@ -668,13 +686,8 @@ EpropConnection< targetidentifierT >::set_status( const DictionaryDatum& d,
     throw BadProperty( "Weight and Wmin must have same sign." );
   }
   */
-
-  if ( update_interval_ <= 0.0 )
-  {
-    throw BadProperty( "The synaptic update interval must be greater than zero." );
-  }
 }
 
 } // of namespace nest
 
-#endif // of #ifndef EPROP_CONNECTION_H
+#endif // of #ifndef EPROP_SYNAPSE_H
