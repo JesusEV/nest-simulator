@@ -166,14 +166,17 @@ public:
     {
       if (t_eprop->is_eprop_readout() )  // if target is a readout neuron
       {
-        t_eprop->init_eprop_buffers( 3.0 * get_delay() );
+        //t_eprop->init_eprop_buffers( 3.0 * get_delay() );
+        t_eprop->init_eprop_buffers( 3.0 );
       }
       else
       {
-        t_eprop->init_eprop_buffers( 2.0 * get_delay() );
+        //t_eprop->init_eprop_buffers( 2.0 * get_delay() );
+        t_eprop->init_eprop_buffers( 2.0 );
       }
     }
-    t.register_stdp_connection( t_lastspike_ - get_delay(), get_delay() );
+    //t.register_stdp_connection( t_lastspike_ - get_delay(), get_delay() );
+    t.register_stdp_connection( t_lastspike_ - 1., 1. );
   }
 
   void
@@ -228,17 +231,23 @@ EpropConnection< targetidentifierT >::send( Event& e,
   thread t,
   const CommonSynapseProperties& )
 {
-  double t_spike = e.get_stamp().get_ms();
+  double t_spike = e.get_stamp().get_ms() + get_delay();
+  
   // use accessor functions (inherited from Connection< >) to obtain delay and
   // target
   Node* target = get_target( t );
-  double dendritic_delay = get_delay();
+
+  EpropArchivingNode* target_eprop = dynamic_cast< EpropArchivingNode* >( target );
 
   // spikes that do not meet the following condition do not need to be delivered because they would
   // arrive during the reset period (-> at the end of a training interval T) of the postsynaptic neuron
   // However, for the readout neurons they are taken into account.
+  
+  double offset = target->is_eprop_readout()? 3. : 2.;
+  double h = Time::get_resolution().get_ms(); 
+  offset *= h;
 
-  if ( ((std::fmod(t_spike, update_interval_) - dendritic_delay ) != 0.0 ) or target->is_eprop_readout() )
+  if ( (std::fmod(t_spike - offset, update_interval_) > get_delay() ) )
   {
 
     // store times of incoming spikes to enable computation of eligibility trace
@@ -259,25 +268,26 @@ EpropConnection< targetidentifierT >::send( Event& e,
       int learning_period_counter_ = ( int ) t_spike_per_update_interval  / batch_size_;
 
       //DEBUG: added 2*delay to be in sync with TF code
-      double t_update_ = t_spike_per_update_interval * update_interval_ + 2.0 * dendritic_delay;
+      double t_update_ = t_spike_per_update_interval * update_interval_ + 2.0 + h ;
       double grad = 0.0;
       if (target->is_eprop_readout() )  // if target is a readout neuron
       {
         pre_syn_spike_times_.insert( --pre_syn_spike_times_.end(), t_nextupdate_ );
+
         // set pointers start and finish at the beginning/end of the history of the postsynaptic
         // neuron. The history before the first presyn spike time is not relevant because there
         // z_hat, and therefore the eligibility trace, is zero.
         // Therefore, we use the time of the first presyn spike to indicate where start should
         // be assiged to. finish should point to the last entry of the current update interval.
         target->get_eprop_history(
-            pre_syn_spike_times_[0] + dendritic_delay,            // time for start
-            t_lastupdate_ + update_interval_ + dendritic_delay,   // time for finish
-            t_lastupdate_ + dendritic_delay,  // used to register this update
-            t_update_ + dendritic_delay,      // used to register this update
+            pre_syn_spike_times_[0],            // time for start
+            t_lastupdate_ + update_interval_,   // time for finish
+            t_lastupdate_ + h,  // used to register this update
+            t_update_ + h,      // used to register this update
             &start,
             &finish );
 
-        // Compute intervals between two consecutive presynaptic spikes which simplifies the
+       // Compute intervals between two consecutive presynaptic spikes which simplifies the
         // cumputation of the trace z_hat of the presynaptic spikes because z_hat jumps by
         // (1 - propagator_low_pass) at each presyn spike and decays exponentially in between.
         std::vector< double > pre_syn_spk_diff(pre_syn_spike_times_.size() - 1);
@@ -294,22 +304,24 @@ EpropConnection< targetidentifierT >::send( Event& e,
             grad += start->learning_signal_ * last_z_hat;
             // exponential decay of z_hat
             last_z_hat *= propagator_low_pass_;
-            ++start;
+
+           ++start;
           }
         }
         grad *= dt;
       }
       else  // if target is a neuron of the recurrent network
       {
-        pre_syn_spike_times_.insert( --pre_syn_spike_times_.end(), t_nextupdate_ - dendritic_delay );
+        pre_syn_spike_times_.insert( --pre_syn_spike_times_.end(), t_nextupdate_ - h );
+
         // set pointers start and finish at the beginning/end of the history of the postsynaptic
         // neuron. The history before the first presyn spike time is not relevant because there
         // z_hat, and therefore the eligibility trace, is zero.
         // Therefore, we use the time of the first presyn spike to indicate where start should
         // be assiged to. finish should point to the last entry of the current update interval.
         target->get_eprop_history(
-            pre_syn_spike_times_[0] + dendritic_delay,  // time for start
-            t_lastupdate_ + update_interval_,           // time for finish
+            pre_syn_spike_times_[0],  // time for start
+            t_lastupdate_,           // time for finish
             t_lastupdate_,    // used to register this update
             t_update_,        // used to register this update
             &start,
@@ -341,7 +353,8 @@ EpropConnection< targetidentifierT >::send( Event& e,
           for ( auto pre_syn_spk_t : pre_syn_spk_diff )
           {
             // jump of z_hat
-            last_z_hat += 1.0;
+            //last_z_hat += 1.0;
+            last_z_hat += ( 1.0 - alpha );
             for (int t = 0; t < pre_syn_spk_t; ++t)
             {
               double pseudo_deriv = start->V_m_;
@@ -364,7 +377,8 @@ EpropConnection< targetidentifierT >::send( Event& e,
           for ( auto pre_syn_spk_t : pre_syn_spk_diff )
           {
             // jump of z_hat
-            last_z_hat += 1.0;
+            //last_z_hat += 1.0;
+            last_z_hat += ( 1.0 - alpha );
             for (int t = 0; t < pre_syn_spk_t; ++t)
             {
               double pseudo_deriv = start->V_m_;
@@ -375,10 +389,13 @@ EpropConnection< targetidentifierT >::send( Event& e,
               sum_t_prime_new = propagator_low_pass_ * sum_t_prime_new + ( 1.0 -
                   propagator_low_pass_ ) * elig_tr;
               grad += sum_t_prime_new * dt * start->learning_signal_;
+
               ++start;
             }
           }
         }
+
+
         // TODO: in the evidence accumulation task only the gradients due to the learning signal
         // are divided by the recall duration. We have to investigte how this affects the regression
         // task.
@@ -396,9 +413,12 @@ EpropConnection< targetidentifierT >::send( Event& e,
         double av_firing_rate = nspikes / update_interval_;
         // Eq.(56) TODO: this includes a factor 2.0 which is lacking in the derivation in the
         // manuscript.
-        grad += 2. * rate_reg_ * ( av_firing_rate - target_firing_rate_ / 1000.) * sum_elig_tr * dt /
+        double reg_grad = 2. * rate_reg_ * ( av_firing_rate - target_firing_rate_ / 1000.) * sum_elig_tr * dt /
           update_interval_;
         // TODO: is the following line needed? (dt = 1.0 anyway)
+        //
+        
+        grad += reg_grad;
         grad *= dt;
       }
       // implementation of batches: store all gradients in a vector and compute the weight using
@@ -411,51 +431,19 @@ EpropConnection< targetidentifierT >::send( Event& e,
 
       grads_.push_back( grad );
 
-//      int tid = target->get_node_id();
-//      //int sid = e.get_sender_node_id();
-//      std::ostream *out, *err, *tmp;
-//      out = &std::cout;
-//      err = &std::cerr;
-//      if (tid < 3) //&& sid == 30) 
-//      {
-//        tmp = (tid == 1)? out : err;
-// 
-//        *tmp << "target id: " << tid
-//                  << " t: " << t_update_ - 2 
-//                  << " learning_period: " << learning_period_counter_ 
-//                  << " weight: " << weight_ 
-//                  << " grad_size: " << grads_.size() 
-//                  <<  " grad = { ";
-//        for (auto g : grads_) *tmp << g << ", ";
-//        *tmp << "}; \n";
-//      }
-
       if ( learning_period_counter_ > last_learning_period_ )
       {
-//        if (tid < 3) //&& sid == 30) 
-//        {
-//          tmp = (tid == 1)? out : err;
-//
-//          *tmp << "[OPT-STEP] target id: " << tid 
-//                    << " t: " << t_update_ - 2 
-//                    << " learning_period: " << learning_period_counter_ 
-//                    << " weight: " << weight_ 
-//                    << " grad_size: " << grads_.size() 
-//                    <<  " grad = { ";
-//          for (auto g : grads_) *tmp << g << ", ";
-//          *tmp << "}; \n";
-//        }
         optimize( learning_period_counter_, last_learning_period_ );
       }
       // DEBUG: define t_lastupdate_ to be the end of the last period T to be compatible with tf code
       t_lastupdate_ = t_update_;
-      t_nextupdate_ += ( floor( ( t_spike - t_nextupdate_ ) / update_interval_ ) + 1 ) *
+      t_nextupdate_ += ( floor( ( t_spike - t_nextupdate_ ) / update_interval_ ) + h ) *
         update_interval_;
       // clear history of presynaptic spike because we don't need them any more
       pre_syn_spike_times_.clear();
       pre_syn_spike_times_.push_back( t_spike );
       // DEBUG: tidy_eprop_history also takes care of the spike_history
-      target->tidy_eprop_history( t_lastupdate_ - dendritic_delay );
+      target->tidy_eprop_history( t_lastupdate_ - h );
     }
   }
 
@@ -553,7 +541,7 @@ EpropConnection< targetidentifierT >::EpropConnection()
   , beta1_adam_( 0.9 )
   , beta2_adam_( 0.999 )
   , epsilon_adam_( 1.0e-8 )
-  , recall_duration_( 150.0 )  // in ms
+  , recall_duration_( 1.0 )  // in ms
   , use_adam_( false )
 {
 }
@@ -639,9 +627,9 @@ EpropConnection< targetidentifierT >::set_status( const DictionaryDatum& d,
   const double h = Time::get_resolution().get_ms();
   // TODO: t_nextupdate and t_lastupdate should be initialized even if set_status is not called
   // DEBUG: added + delay to correct for the delay of the learning signal
-  t_nextupdate_ = update_interval_ + 2.0 * get_delay();
+  t_nextupdate_ = update_interval_ + 2.0 + h;
   //DEBUG: shifted initial value of t_lastupdate to be in sync with TF code
-  t_lastupdate_ = 2.0 * get_delay();
+  t_lastupdate_ = 2.0 + h;
   // compute propagator for low pass filtering of eligibility trace
   if ( tau_low_pass_e_tr_ > 0.0 )
   {
