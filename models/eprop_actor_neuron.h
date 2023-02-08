@@ -1,5 +1,5 @@
 /*
- *  error_neuron.h
+ *  eprop_actor_neuron.h
  *
  *  This file is part of NEST.
  *
@@ -20,8 +20,8 @@
  *
  */
 
-#ifndef ERROR_NEURON_H
-#define ERROR_NEURON_H
+#ifndef EPROP_ACTOR_NEURON_H
+#define EPROP_ACTOR_NEURON_H
 
 // Generated includes:
 #include "config.h"
@@ -46,7 +46,7 @@ namespace nest
 @ingroup Neurons
 @ingroup rate
 
-Name: error_neuron - Rate neuron that sums up incoming rates
+Name: actor_neuron - Rate neuron that sums up incoming rates
                 and applies a nonlinearity specified via the template.
 
 Description:
@@ -61,7 +61,7 @@ receiving rate neuron instead of using a direct connection.
 
 Remarks:
 
-- Weights on connections from and to the error_neuron_
+- Weights on connections from and to the actor_neuron_
   are handled as usual.
 - Delays are honored on incoming and outgoing connections.
 
@@ -78,14 +78,14 @@ Author: Mario Senden, Jan Hahne, Jannis Schuecker
 
 FirstVersion: November 2017
 */
-class error_neuron : public EpropArchivingNode
+class actor_neuron : public EpropArchivingNode
 {
 
 public:
   typedef Node base;
 
-  error_neuron();
-  error_neuron( const error_neuron& );
+  actor_neuron();
+  actor_neuron( const actor_neuron& );
 
   /**
    * Import sets of overloaded virtual functions.
@@ -101,18 +101,22 @@ public:
 
   using Node::handles_test_event;
 
+  port send_test_event( Node&, rport, synindex, bool );
+
   void handle( DelayedRateConnectionEvent& );
+  void handle( TemporalDiffErrorConnectionEvent& );
   void handle( SpikeEvent& );
   void handle( CurrentEvent& );
   void handle( DataLoggingRequest& );
 
   port handles_test_event( DelayedRateConnectionEvent&, rport );
+  port handles_test_event( TemporalDiffErrorConnectionEvent&, rport );
   port handles_test_event( SpikeEvent&, rport );
   port handles_test_event( CurrentEvent&, rport );
   port handles_test_event( DataLoggingRequest&, rport );
 
   void
-  sends_secondary_event( LearningSignalConnectionEvent& )
+  sends_secondary_event( RewardBasedLearningSignalConnectionEvent& )
   {
   }
   void
@@ -123,6 +127,8 @@ public:
   void get_status( DictionaryDatum& ) const;
   void set_status( const DictionaryDatum& );
   bool is_eprop_readout();
+  bool is_eprop_critic();
+  bool is_eprop_actor();
 
 private:
   void init_state_( const Node& proto );
@@ -134,8 +140,8 @@ private:
   void update( Time const&, const long, const long );
 
   // The next two classes need to be friends to access the State_ class/member
-  friend class RecordablesMap< error_neuron >;
-  friend class UniversalDataLogger< error_neuron >;
+  friend class RecordablesMap< actor_neuron >;
+  friend class UniversalDataLogger< actor_neuron >;
 
   // ----------------------------------------------------------------
 
@@ -156,11 +162,17 @@ private:
     double t_start_ls_; // time after which a learning signal is sent to the recurrent neurons
     bool regression_; // regression if true else classification
     bool update_interval_reset_;
+
     Parameters_(); //!< Sets default parameter values
 
     void get( DictionaryDatum& ) const; //!< Store current values in dictionary
 
     double set( const DictionaryDatum& );
+
+    //----------------------
+    double output_averaging_period_; 
+    double ce_;
+    double ce_decay_;
   };
 
   // ----------------------------------------------------------------
@@ -193,8 +205,8 @@ private:
    */
   struct Buffers_
   {
-    Buffers_( error_neuron& );
-    Buffers_( const Buffers_&, error_neuron& );
+    Buffers_( actor_neuron& );
+    Buffers_( const Buffers_&, actor_neuron& );
 
     // buffer for rate vector received by DelayRateConnection
     RingBuffer delayed_rates_;
@@ -205,7 +217,7 @@ private:
     RingBuffer currents_;
 
     //! Logger for all analog data
-    UniversalDataLogger< error_neuron > logger_;
+    UniversalDataLogger< actor_neuron > logger_;
   };
 
   // ----------------------------------------------------------------
@@ -221,14 +233,27 @@ private:
     int step_start_ls_; // step after which a learning signal is sent to the recurrent neurons
     int T_steps_; // length of one period T in steps
 
-
     // buffer to store the membrane potential (1st entry), the target signal (2nd), and the
     // normalization (3rd) so that the normalized learning signal can be computed once the
     // membrane potential of the other readout neurons arrived.
     // TODO: make propper buffer so that it can be used with delay != 1ms
     //double state_buffer_ [ 3 ] = { 0.0, 0.0, 1.0 };
-    double readout_signal_;
-    double target_signal_;
+    double actor_signal_;
+
+    // -----------------
+    long step_start_output_averaging_;
+    double mean_output_signal_; // *cJe* Mean value of normalized neuron output for the period
+                                // between step_start_filtering and step_start_ls_.
+    double normalized_ls_;
+    double action_prob_; // *cJe* Action probability.  
+    double entropy_;  // *cJe* Current value of policy entropy.
+    double td_error_; // *cJe* temporal difference error minus reward.
+    bool action_taken_here_; // *cJe* True if selected action corresponds to *this neuron
+                             // (there is a direct mapping between posible actions and actor neurons). 
+    std::vector<double> current_action_probs_; // *cJe* Actor probabilities.
+    std::vector<double> mean_action_probs_; // *cJe* Actor probabilities.
+                                            
+    std::mt19937 rand_generator_; // *cJe* TODO: improve usage of random numbers.
    };
 
   /**
@@ -250,15 +275,15 @@ private:
 
   static const size_t NUM_RATE_RECEPTORS = SUP_RATE_RECEPTOR - MIN_RATE_RECEPTOR;
 
-  void add_learning_to_hist( LearningSignalConnectionEvent& e );
+  //void add_learning_to_hist( RewardBasedLearningSignalConnectionEvent& e );
 
   // DEBUG II:use this function to read learning signal in case of evidence accumulation task
   double
   get_last_ls_() const
   {
-    if ( eprop_history_.size() > 3 )
+    if ( rbeprop_history_.size() > 3 )
     {
-      return ( ( eprop_history_.rbegin() ) + 3 )->learning_signal_;
+      return ( ( rbeprop_history_.rbegin() ) + 3 )->learning_signal_;
     }
     return 0.0;
   }
@@ -292,11 +317,11 @@ private:
   Buffers_ B_;
 
   //! Mapping of recordables names to access functions
-  static RecordablesMap< error_neuron > recordablesMap_;
+  static RecordablesMap< actor_neuron > recordablesMap_;
 };
 
 inline void
-error_neuron::update( Time const& origin,
+actor_neuron::update( Time const& origin,
   const long from,
   const long to )
 {
@@ -304,7 +329,7 @@ error_neuron::update( Time const& origin,
 }
 
 inline port
-error_neuron::handles_test_event(
+actor_neuron::handles_test_event(
   DelayedRateConnectionEvent&,
   rport receptor_type )
 {
@@ -322,9 +347,20 @@ error_neuron::handles_test_event(
   return receptor_type - MIN_RATE_RECEPTOR;
 }
 
+inline port
+actor_neuron::handles_test_event(
+  TemporalDiffErrorConnectionEvent&,
+  rport receptor_type )
+{
+  if ( receptor_type != 0 )
+  {
+    throw UnknownReceptorType( receptor_type, get_name() );
+  }
+  return 0;
+}
 
 inline port
-error_neuron::handles_test_event(
+actor_neuron::handles_test_event(
         SpikeEvent&, rport receptor_type )
 {
   if ( receptor_type != 0 )
@@ -335,7 +371,7 @@ error_neuron::handles_test_event(
 }
 
 inline port
-error_neuron::handles_test_event(
+actor_neuron::handles_test_event(
         CurrentEvent&, rport receptor_type )
 {
   if ( receptor_type != 0 )
@@ -346,7 +382,7 @@ error_neuron::handles_test_event(
 }
 
 inline port
-error_neuron::handles_test_event(
+actor_neuron::handles_test_event(
   DataLoggingRequest& dlr,
   rport receptor_type )
 {
@@ -357,8 +393,19 @@ error_neuron::handles_test_event(
   return B_.logger_.connect_logging_device( dlr, recordablesMap_ );
 }
 
+inline port
+actor_neuron::send_test_event( Node& target,
+  rport receptor_type,
+  synindex,
+  bool )
+{
+  SpikeEvent e;
+  e.set_sender( *this );
+  return target.handles_test_event( e, receptor_type );
+}
+
 inline void
-error_neuron::get_status( DictionaryDatum& d ) const
+actor_neuron::get_status( DictionaryDatum& d ) const
 {
   P_.get( d );
   S_.get( d, P_ );
@@ -373,7 +420,7 @@ error_neuron::get_status( DictionaryDatum& d ) const
 }
 
 inline void
-error_neuron::set_status( const DictionaryDatum& d )
+actor_neuron::set_status( const DictionaryDatum& d )
 {
   Parameters_ ptmp = P_; // temporary copy in case of errors
   const double delta_EL = ptmp.set( d ); // throws if BadProperty
@@ -394,4 +441,4 @@ error_neuron::set_status( const DictionaryDatum& d )
 
 } // namespace
 
-#endif /* #ifndef ERROR_NEURON_H */
+#endif /* #ifndef EPROP_ACTOR_NEURON_H */

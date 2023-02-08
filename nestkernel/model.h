@@ -152,6 +152,8 @@ public:
   virtual void sends_secondary_event( DiffusionConnectionEvent& de ) = 0;
   virtual void sends_secondary_event( DelayedRateConnectionEvent& re ) = 0;
   virtual void sends_secondary_event( LearningSignalConnectionEvent& re ) = 0;
+  virtual void sends_secondary_event( RewardBasedLearningSignalConnectionEvent& re ) = 0;
+  virtual void sends_secondary_event( TemporalDiffErrorConnectionEvent& re ) = 0;
 
   /**
    * Check what type of signal this model is sending.

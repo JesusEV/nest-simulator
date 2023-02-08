@@ -52,3 +52,14 @@ nest::histentry_eprop::histentry_eprop( double t, double V_m, double learning_si
   , access_counter_( access_counter )
 {
 }
+
+nest::histentry_rbeprop::histentry_rbeprop( double t, double V_m, double learning_signal, double temporal_diff_error,
+                                        double entropy_reg_factor, size_t access_counter )
+  : t_( t )
+  , V_m_( V_m )
+  , learning_signal_( learning_signal )
+  , temporal_diff_error_( temporal_diff_error ) 
+  , entropy_reg_factor_( entropy_reg_factor )
+  , access_counter_( access_counter )
+{
+}

@@ -657,6 +657,17 @@ extern const Name y_1;
 extern const Name z;
 extern const Name z_connected;
 
+extern const Name cv;
+extern const Name ce;
+extern const Name ce_decay;
+extern const Name move_interval;
+extern const Name rb_gamma;
+extern const Name output_averaging_period;
+extern const Name reward_based_eprop_enabled;
+extern const Name reward_based_eprop_update_interval;
+extern const Name reward_based_eprop_batch_size;
+extern const Name reward_based_eprop_done;
+
 } // namespace names
 
 } // namespace nest

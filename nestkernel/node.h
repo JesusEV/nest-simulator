@@ -412,6 +412,8 @@ public:
   virtual port handles_test_event( DiffusionConnectionEvent&, rport receptor_type );
   virtual port handles_test_event( DelayedRateConnectionEvent&, rport receptor_type );
   virtual port handles_test_event( LearningSignalConnectionEvent&, rport receptor_type );
+  virtual port handles_test_event( RewardBasedLearningSignalConnectionEvent&, rport receptor_type );
+  virtual port handles_test_event( TemporalDiffErrorConnectionEvent&, rport receptor_type );
 
   /**
    * Required to check, if source neuron may send a SecondaryEvent.
@@ -450,6 +452,10 @@ public:
   virtual void sends_secondary_event( DelayedRateConnectionEvent& re );
 
   virtual void sends_secondary_event( LearningSignalConnectionEvent& re );
+
+  virtual void sends_secondary_event( RewardBasedLearningSignalConnectionEvent& re );
+
+  virtual void sends_secondary_event( TemporalDiffErrorConnectionEvent& re );
 
   /**
    * Register a STDP connection
@@ -567,6 +573,10 @@ public:
 
   virtual void handle( LearningSignalConnectionEvent& e );
 
+  virtual void handle( RewardBasedLearningSignalConnectionEvent& e );
+
+  virtual void handle( TemporalDiffErrorConnectionEvent& e );
+
   /**
    * @defgroup SP_functions Structural Plasticity in NEST.
    * Functions related to accessibility and setup of variables required for
@@ -676,6 +686,11 @@ public:
 
   virtual bool is_eprop_adaptive();
 
+  virtual bool is_eprop_critic();
+
+  virtual bool is_eprop_actor();
+
+
   /**
    * write the Kminus, nearest_neighbor_Kminus, and Kminus_triplet
    * values at t (in ms) to the provided locations.
@@ -718,6 +733,13 @@ public:
     std::deque< histentry_eprop >::iterator* start,
     std::deque< histentry_eprop >::iterator* finish );
 
+  virtual void get_eprop_history( double t1,
+    double t2,
+    double t3,
+    double t4,
+    std::deque< histentry_rbeprop >::iterator* start,
+    std::deque< histentry_rbeprop >::iterator* finish );
+
   virtual void get_spike_history( double t1,
     double t2,
     std::deque< double >::iterator* start,
@@ -726,6 +748,7 @@ public:
   virtual double get_spike_history_len() const;
 
   virtual void tidy_eprop_history( double t1 );
+  virtual void tidy_rbeprop_history( double t1 );
 
   /**
    * Modify Event object parameters during event delivery.

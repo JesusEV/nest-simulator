@@ -153,11 +153,13 @@ public:
   void handle( SpikeEvent& );
   void handle( CurrentEvent& );
   void handle( LearningSignalConnectionEvent& );
+  void handle( RewardBasedLearningSignalConnectionEvent& );
   void handle( DataLoggingRequest& );
 
   port handles_test_event( SpikeEvent&, rport );
   port handles_test_event( CurrentEvent&, rport );
   port handles_test_event( LearningSignalConnectionEvent&, rport );
+  port handles_test_event( RewardBasedLearningSignalConnectionEvent&, rport );
   port handles_test_event( DataLoggingRequest&, rport );
 
   void get_status( DictionaryDatum& ) const;
@@ -165,6 +167,8 @@ public:
   double get_leak_propagator() const;
   bool is_eprop_readout();
   bool is_eprop_adaptive();
+  bool is_eprop_critic();
+  bool is_eprop_actor();
 
 private:
   void init_state_( const Node& proto );
@@ -301,9 +305,9 @@ private:
   double
   get_last_h_() const
   {
-    if ( eprop_history_.size() > 0 )
+    if ( rbeprop_history_.size() > 0 )
     {
-      return ( eprop_history_.rbegin() )->V_m_;
+      return ( rbeprop_history_.rbegin() )->V_m_;
     }
     return 0.0;
   }
@@ -311,9 +315,9 @@ private:
   double
   get_last_ls_() const
   {
-    if ( eprop_history_.size() > 2 )
+    if ( rbeprop_history_.size() > 2 )
     {
-      return ( ( eprop_history_.rbegin() ) + 2 )->learning_signal_;
+      return ( ( rbeprop_history_.rbegin() ) + 2 )->learning_signal_;
     }
     return 0.0;
   }
@@ -371,6 +375,17 @@ iaf_psc_delta_eprop::handles_test_event( CurrentEvent&, rport receptor_type )
 
 inline port
 iaf_psc_delta_eprop::handles_test_event( LearningSignalConnectionEvent&,
+  rport receptor_type )
+{
+  if ( receptor_type != 0 )
+  {
+    throw UnknownReceptorType( receptor_type, get_name() );
+  }
+  return 0;
+}
+
+inline port
+iaf_psc_delta_eprop::handles_test_event( RewardBasedLearningSignalConnectionEvent&,
   rport receptor_type )
 {
   if ( receptor_type != 0 )

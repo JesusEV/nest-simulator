@@ -1195,9 +1195,29 @@ public:
   LearningSignalConnectionEvent* clone() const;
 };
 
+class RewardBasedLearningSignalConnectionEvent : public DataSecondaryEvent< double, RewardBasedLearningSignalConnectionEvent >
+{
 
+public:
+  RewardBasedLearningSignalConnectionEvent()
+  {
+  }
 
+  void operator()();
+  RewardBasedLearningSignalConnectionEvent* clone() const;
+};
 
+class TemporalDiffErrorConnectionEvent : public DataSecondaryEvent< double, TemporalDiffErrorConnectionEvent >
+{
+
+public:
+  TemporalDiffErrorConnectionEvent()
+  {
+  }
+
+  void operator()();
+  TemporalDiffErrorConnectionEvent* clone() const;
+};
 
 /**
  * Event for diffusion connections (rate model connections for the
@@ -1275,6 +1295,18 @@ inline LearningSignalConnectionEvent*
 LearningSignalConnectionEvent::clone() const
 {
   return new LearningSignalConnectionEvent( *this );
+}
+
+inline RewardBasedLearningSignalConnectionEvent*
+RewardBasedLearningSignalConnectionEvent::clone() const
+{
+  return new RewardBasedLearningSignalConnectionEvent( *this );
+}
+
+inline TemporalDiffErrorConnectionEvent*
+TemporalDiffErrorConnectionEvent::clone() const
+{
+  return new TemporalDiffErrorConnectionEvent( *this );
 }
 
 inline DiffusionConnectionEvent*

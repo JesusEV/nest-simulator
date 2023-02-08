@@ -633,6 +633,17 @@ const Name y_1( "y_1" );
 const Name z( "z" );
 const Name z_connected( "z_connected" );
 
+const Name cv( "cv" );
+const Name ce( "ce" );
+const Name ce_decay( "ce_decay" );
+const Name move_interval( "move_interval" );
+const Name rb_gamma( "rb_gamma" );
+const Name output_averaging_period( "output_averaging_period" );
+const Name reward_based_eprop_enabled( "reward_based_eprop_enabled" );
+const Name reward_based_eprop_update_interval( "reward_based_eprop_update_interval" );
+const Name reward_based_eprop_batch_size( "reward_based_eprop_batch_size" );
+const Name reward_based_eprop_done( "reward_based_eprop_done" );
+
 } // namespace names
 
 } // namespace nest

@@ -21,8 +21,8 @@
  */
 
 
-#ifndef LEARNING_SIGNAL_CONNECTION_DELAYED_H
-#define LEARNING_SIGNAL_CONNECTION_DELAYED_H
+#ifndef REWARD_BASED_LEARNING_SIGNAL_CONNECTION_DELAYED_H
+#define REWARD_BASED_LEARNING_SIGNAL_CONNECTION_DELAYED_H
 
 #include "connection.h"
 
@@ -43,7 +43,7 @@ between rate model neurons.
 To create instantaneous rate connections please use
 the synapse type rate_connection_instantaneous.
 
-Transmits: LearningSignalConnectionEvent
+Transmits: RewardBasedLearningSignalConnectionEvent
 
 References:
 
@@ -64,20 +64,20 @@ SeeAlso: rate_connection_instantaneous, rate_neuron_ipn, rate_neuron_opn
  * has the properties weight, delay and receiver port.
  */
 template < typename targetidentifierT >
-class LearningSignalConnectionDelayed : public Connection< targetidentifierT >
+class RewardBasedLearningSignalConnectionDelayed : public Connection< targetidentifierT >
 {
 
 public:
   // this line determines which common properties to use
   typedef CommonSynapseProperties CommonPropertiesType;
   typedef Connection< targetidentifierT > ConnectionBase;
-  typedef LearningSignalConnectionEvent EventType;
+  typedef RewardBasedLearningSignalConnectionEvent EventType;
 
   /**
    * Default Constructor.
    * Sets default values for all parameters. Needed by GenericConnectorModel.
    */
-  LearningSignalConnectionDelayed()
+  RewardBasedLearningSignalConnectionDelayed()
     : ConnectionBase()
     , weight_( 1.0 )
   {
@@ -135,7 +135,7 @@ private:
 
 template < typename targetidentifierT >
 void
-LearningSignalConnectionDelayed< targetidentifierT >::get_status( DictionaryDatum& d ) const
+RewardBasedLearningSignalConnectionDelayed< targetidentifierT >::get_status( DictionaryDatum& d ) const
 {
   ConnectionBase::get_status( d );
   def< double >( d, names::weight, weight_ );
@@ -144,7 +144,7 @@ LearningSignalConnectionDelayed< targetidentifierT >::get_status( DictionaryDatu
 
 template < typename targetidentifierT >
 void
-LearningSignalConnectionDelayed< targetidentifierT >::set_status( const DictionaryDatum& d, ConnectorModel& cm )
+RewardBasedLearningSignalConnectionDelayed< targetidentifierT >::set_status( const DictionaryDatum& d, ConnectorModel& cm )
 {
   ConnectionBase::set_status( d, cm );
   updateValue< double >( d, names::weight, weight_ );

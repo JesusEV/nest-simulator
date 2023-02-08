@@ -182,6 +182,38 @@ nest::EpropArchivingNode::find_eprop_hist_entries( double t1,
 }
 
 void
+nest::EpropArchivingNode::find_eprop_hist_entries( double t1,
+  double t2,
+  std::deque< histentry_rbeprop >::iterator* start,
+  std::deque< histentry_rbeprop >::iterator* finish )
+{
+  // set pointer to entries of eprop history hist that correspond to the times t1 and t2.
+  *finish = rbeprop_history_.end();
+  if ( rbeprop_history_.empty() )
+  {
+    *start = *finish;
+    return;
+  }
+  else
+  {
+    // compute the position of the pointers that point to the successor of the hist entries with
+    // times t1 and t2. This is straight forward because there are no time steps missing in the
+    // eprop history. We just have to take care that *start points at least to hist.begin() and
+    // *finish at most to hist.end().
+    // DEBUG: set pointers to one step earlier (removed + 1)
+    double t_first = rbeprop_history_.begin()->t_;
+    int pos_t1 = std::max( 0,
+        ( (int) std::round( ( t1 - t_first ) / Time::get_resolution().get_ms() ) ) + 0*1 );
+    int pos_t2 = std::min( (int)( rbeprop_history_.size() ),
+        ( (int) std::round( ( t2 - t_first ) / Time::get_resolution().get_ms() ) ) + 0*1 );
+
+    std::deque< histentry_rbeprop >::iterator it_first = rbeprop_history_.begin();
+    *start = it_first + std::max( 0, pos_t1);
+    *finish = it_first + std::max( 0, pos_t2);
+  }
+}
+
+void
 nest::EpropArchivingNode::register_update( double t_lastupdate,
    double t_update )
 {
@@ -208,7 +240,8 @@ nest::EpropArchivingNode::register_update( double t_lastupdate,
   if ( it_reg == last_spike_per_synapse_.end() ||
       fabs( t_lastupdate - it_reg->t_ ) > kernel().connection_manager.get_stdp_eps() )
   {
-    std::cout << "found nothing, searched for:" << t_lastupdate << std::endl;
+    //std::cout << "found nothing, searched for:" << t_lastupdate << std::endl;
+    return;
   }
   else
   {
@@ -228,6 +261,18 @@ nest::EpropArchivingNode::get_eprop_history( double t1,
   double t4,
   std::deque< histentry_eprop >::iterator* start,
   std::deque< histentry_eprop >::iterator* finish )
+{
+  register_update( t3, t4 );
+  nest::EpropArchivingNode::find_eprop_hist_entries( t1, t2, start, finish );
+}
+
+void
+nest::EpropArchivingNode::get_eprop_history( double t1,
+  double t2,
+  double t3,
+  double t4,
+  std::deque< histentry_rbeprop >::iterator* start,
+  std::deque< histentry_rbeprop >::iterator* finish )
 {
   register_update( t3, t4 );
   nest::EpropArchivingNode::find_eprop_hist_entries( t1, t2, start, finish );
@@ -284,6 +329,27 @@ nest::EpropArchivingNode::tidy_eprop_history( double t1 )
 }
 
 void
+nest::EpropArchivingNode::tidy_rbeprop_history( double t1 )
+{
+  double smallest_time_to_keep = ( last_spike_per_synapse_.begin() )->t_;
+  if ( !rbeprop_history_.empty() )
+  {
+    // erase history for times smaller than the smallest last spike time.
+    // search for coresponding hist entry
+    std::deque< histentry_rbeprop >::iterator start;
+    std::deque< histentry_rbeprop >::iterator finish;
+    nest::EpropArchivingNode::find_eprop_hist_entries(
+       0.0, smallest_time_to_keep, &start, &finish );
+    // erase entries that are no longer used
+    rbeprop_history_.erase( rbeprop_history_.begin(), finish );
+  }
+  while( ( !spike_history_.empty() ) && ( spike_history_.front() + 1.0e-6 < smallest_time_to_keep ) )
+  {
+    spike_history_.pop_front();
+  }
+}
+
+void
 nest::EpropArchivingNode::write_eprop_history( Time const& t_sp,
   double diff_V_m_V_th,
   double V_th )
@@ -298,6 +364,20 @@ nest::EpropArchivingNode::write_eprop_history( Time const& t_sp,
   }
 }
 
+void
+nest::EpropArchivingNode::write_rbeprop_history( Time const& t_sp,
+  double diff_V_m_V_th,
+  double V_th )
+{
+  if ( n_incoming_ )
+  {
+    const double t_ms = t_sp.get_ms();
+    // create new entry in history
+    // DEBUG: additional factor 1 / V_th
+    double h = pseudo_deriv( diff_V_m_V_th, V_th ) / V_th;
+    rbeprop_history_.push_back( histentry_rbeprop( t_ms, h, 0.0, 0.0, 0.0, 0 ) );
+  }
+}
 
 void
 nest::EpropArchivingNode::write_spike_history( Time const& t_sp )
@@ -329,6 +409,40 @@ nest::EpropArchivingNode::add_learning_to_hist( LearningSignalConnectionEvent& e
     double t_entry = e.get_coeffvalue( it );
     double normalized_learning_signal = e.get_coeffvalue( it );
     start->learning_signal_ += weight * normalized_learning_signal;
+    ++start;
+  }
+}
+
+void
+nest::EpropArchivingNode::add_learning_to_hist( RewardBasedLearningSignalConnectionEvent& e )
+{
+  const double weight = e.get_weight();
+  const long delay = e.get_delay_steps();
+  const Time stamp = e.get_stamp();
+
+  double t_ms = stamp.get_ms() - (5.0)*Time::get_resolution().get_ms();
+
+  std::deque< histentry_rbeprop >::iterator start;
+  std::deque< histentry_rbeprop >::iterator finish;
+
+  // Get part of history to which the learning signal is added
+  // This increases the access counter which is undone below
+  nest::EpropArchivingNode::find_eprop_hist_entries(
+     t_ms, t_ms + Time::delay_steps_to_ms(delay), &start, &finish );
+  std::vector< unsigned int >::iterator it = e.begin();
+  if ( start != finish && it != e.end() )
+  {
+    // Add learning signal and reduce access counter
+    double t_entry = e.get_coeffvalue( it );
+    double normalized_learning_signal = e.get_coeffvalue( it );
+    double temporal_diff_error = e.get_coeffvalue( it );
+    double entropy_reg_factor = e.get_coeffvalue( it );
+
+    start->learning_signal_ += weight * normalized_learning_signal;
+    start->entropy_reg_factor_ += weight * entropy_reg_factor;
+    if (std::abs(normalized_learning_signal) > 1e-6)
+        start->temporal_diff_error_ = temporal_diff_error;
+
     ++start;
   }
 }

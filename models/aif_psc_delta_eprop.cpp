@@ -80,6 +80,7 @@ nest::aif_psc_delta_eprop::Parameters_::Parameters_()
   , V_reset_( -70.0 - E_L_ )                        // mV, rel to E_L_
   , beta_( 1.0 )
   , tau_a_( 10.0 )
+  , update_interval_reset_( true )
   , with_refr_input_( false )
 {
 }
@@ -109,6 +110,7 @@ nest::aif_psc_delta_eprop::Parameters_::get( DictionaryDatum& d ) const
   def< double >( d, names::t_ref, t_ref_ );
   def< double >( d, names::beta, beta_ );
   def< double >( d, names::tau_a, tau_a_ );
+  def< bool >( d, names::update_interval_reset, update_interval_reset_ );
   def< bool >( d, names::refractory_input, with_refr_input_ );
 }
 
@@ -176,6 +178,7 @@ nest::aif_psc_delta_eprop::Parameters_::set( const DictionaryDatum& d )
   }
 
   updateValue< bool >( d, names::refractory_input, with_refr_input_ );
+  updateValue< bool >( d, names::update_interval_reset, update_interval_reset_ );
 
   return delta_EL;
 }
@@ -311,18 +314,37 @@ nest::aif_psc_delta_eprop::update( Time const& origin,
     to >= 0 && ( delay ) from < kernel().connection_manager.get_min_delay() );
   assert( from < to );
 
+  long steps = origin.get_steps();
   const double h = Time::get_resolution().get_ms();
   for ( long lag = from; lag < to; ++lag )
   {
+    long steps_including_lag = steps + lag;
     // DEBUG: added reset after each T to be compatible with tf code
-    if ( ( origin.get_steps() + lag - 1 ) % static_cast< int >( ( get_update_interval() / h) ) == 0 )
+    int t_mod_T = ( steps_including_lag - 1 ) % get_update_interval_steps();
+    if (kernel().simulation_manager.is_reward_based_eprop_enabled())
     {
-      S_.y3_ = 0.0;
-      S_.a_ = 0.0;
-      S_.r_ = 0.0;
-      B_.spikes_.clear();   // includes resize
-      V_.reset_next_step_ = false;
+      long move = kernel().simulation_manager.get_reward_based_eprop_current_move();
+      if (move == 0 && t_mod_T == 0)
+      {
+        S_.y3_ = 0.0;
+        S_.a_ = 0.0;
+        S_.r_ = 0;
+        B_.spikes_.clear();   // includes resize
+        V_.reset_next_step_ = false;
+      }
     }
+    else
+    {
+      if ( t_mod_T == 0 && ( P_.update_interval_reset_ ) )
+      {
+        S_.y3_ = 0.0;
+        S_.a_ = 0.0;
+        S_.r_ = 0;
+        B_.spikes_.clear();   // includes resize
+        V_.reset_next_step_ = false;
+      }
+    }
+
     // update spiking threshold
     S_.a_ *= V_.Pa_;
     // DEBUG: introduce factor ( 1 - exp( -dt / tau_m ) ) for incoming spikes
@@ -363,12 +385,26 @@ nest::aif_psc_delta_eprop::update( Time const& origin,
     if ( S_.r_ > 0 )
     {
       // if neuron is refractory, the preudo derivative is set to zero
-      write_eprop_history( Time::step( origin.get_steps() + lag + 1 ), P_.V_th_, P_.V_th_ );
+      if (kernel().simulation_manager.is_reward_based_eprop_enabled())
+      {
+        write_rbeprop_history( Time::step( origin.get_steps() + lag + 1 ), P_.V_th_, P_.V_th_ );
+      }
+      else
+      {
+        write_eprop_history( Time::step( origin.get_steps() + lag + 1 ), P_.V_th_, P_.V_th_ );
+      }
       --S_.r_;
     }
     else
     {
-      write_eprop_history( Time::step( origin.get_steps() + lag + 1 ), S_.y3_ - thr, P_.V_th_ );
+      if (kernel().simulation_manager.is_reward_based_eprop_enabled())
+      {
+        write_rbeprop_history( Time::step( origin.get_steps() + lag + 1 ), S_.y3_ - thr, P_.V_th_ );
+      }
+      else
+      {
+        write_eprop_history( Time::step( origin.get_steps() + lag + 1 ), S_.y3_ - thr, P_.V_th_ );
+      }
     }
     // set new input current
     S_.y0_ = B_.currents_.get_value( lag );
@@ -465,6 +501,18 @@ nest::aif_psc_delta_eprop::is_eprop_adaptive()
   return true;
 }
 
+bool
+nest::aif_psc_delta_eprop::is_eprop_critic()
+{
+  return false;
+}
+
+bool
+nest::aif_psc_delta_eprop::is_eprop_actor()
+{
+  return false;
+}
+
 void
 nest::aif_psc_delta_eprop::handle( SpikeEvent& e )
 {
@@ -516,6 +564,14 @@ nest::aif_psc_delta_eprop::handle(
   }
   std::cout << std::endl;
   */
+}
+
+void
+nest::aif_psc_delta_eprop::handle(
+  RewardBasedLearningSignalConnectionEvent& e )
+{
+  // Add learning signal to hist entries
+  add_learning_to_hist( e );
 }
 
 void

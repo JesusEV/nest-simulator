@@ -1,5 +1,5 @@
 /*
- *  error_neuron.cpp
+ *  critic_neuron.cpp
  *
  *  This file is part of NEST.
  *
@@ -20,7 +20,7 @@
  *
  */
 
-#include "error_neuron.h"
+#include "eprop_critic_neuron.h"
 
 // C++ includes:
 #include <cmath> // in case we need isnan() // fabs
@@ -52,25 +52,25 @@ namespace nest
  * Recordables map
  * ---------------------------------------------------------------- */
 
-RecordablesMap< error_neuron >error_neuron::recordablesMap_;
+RecordablesMap< critic_neuron >critic_neuron::recordablesMap_;
 
 template <>
 void
-RecordablesMap< error_neuron >::create()
+RecordablesMap< critic_neuron >::create()
 {
-  insert_( names::target_rate, &error_neuron::get_target_rate_ );
+  insert_( names::target_rate, &critic_neuron::get_target_rate_ );
   // DEBUG II: the commented line below was used in the pattern generation task
-  //insert_( names::learning_signal, &error_neuron::get_learning_signal_ );
-  insert_( names::learning_signal, &error_neuron::get_last_ls_ );
-  insert_( names::V_m, &error_neuron::get_V_m_ );
-  insert_( names::len_eprop_hist, &error_neuron::get_eprop_history_len );
-  insert_( names::len_ls_per_syn, &error_neuron::get_ls_per_syn_len );
+  //insert_( names::learning_signal, &critic_neuron::get_learning_signal_ );
+  insert_( names::learning_signal, &critic_neuron::get_last_ls_ );
+  insert_( names::V_m, &critic_neuron::get_V_m_ );
+  insert_( names::len_eprop_hist, &critic_neuron::get_eprop_history_len );
+  insert_( names::len_ls_per_syn, &critic_neuron::get_ls_per_syn_len );
 }
 /* ----------------------------------------------------------------
  * Default constructors defining default parameters and state
  * ---------------------------------------------------------------- */
 
-nest::error_neuron::Parameters_::Parameters_()
+nest::critic_neuron::Parameters_::Parameters_()
   : tau_m_( 10.0 )                                  // ms
   , c_m_( 250.0 )                                   // pF
   , E_L_( 0.0 )                                   // mV
@@ -79,10 +79,12 @@ nest::error_neuron::Parameters_::Parameters_()
   , t_start_ls_( 0.0 )                               // ms
   , regression_( true )
   , update_interval_reset_( true )
+  , cv_( 0.0 )                               // ms
+  , rb_gamma_( 0.95 )
 {
 }
 
-nest::error_neuron::State_::State_()
+nest::critic_neuron::State_::State_()
   : target_rate_( 0.0 )
   , learning_signal_( 0.0 )
   , y0_( 0.0 )
@@ -95,7 +97,7 @@ nest::error_neuron::State_::State_()
  * ---------------------------------------------------------------- */
 
 void
-nest::error_neuron::Parameters_::get(
+nest::critic_neuron::Parameters_::get(
   DictionaryDatum& d ) const
 {
   def< double >( d, names::E_L, E_L_ ); // Resting potential
@@ -106,10 +108,13 @@ nest::error_neuron::Parameters_::get(
   def< double >( d, names::start, t_start_ls_ );
   def< bool >( d, names::regression, regression_ );
   def< bool >( d, names::update_interval_reset, update_interval_reset_ );
+
+  def< double >( d, names::cv, cv_ );
+  def< double >( d, names::rb_gamma, rb_gamma_ );
 }
 
 double
-nest::error_neuron::Parameters_::set(
+nest::critic_neuron::Parameters_::set(
   const DictionaryDatum& d )
 {
   const double ELold = E_L_;
@@ -127,6 +132,9 @@ nest::error_neuron::Parameters_::set(
   updateValue< bool >( d, names::regression, regression_ );
   updateValue< bool >( d, names::update_interval_reset, update_interval_reset_ );
 
+  updateValue< double >( d, names::cv, cv_ );
+  updateValue< double >( d, names::rb_gamma, rb_gamma_ );
+
   if ( c_m_ <= 0 )
   {
     throw BadProperty( "Capacitance must be >0." );
@@ -140,7 +148,7 @@ nest::error_neuron::Parameters_::set(
 }
 
 void
-nest::error_neuron::State_::get(
+nest::critic_neuron::State_::get(
   DictionaryDatum& d, const Parameters_& p ) const
 {
   def< double >( d, names::target_rate, target_rate_); // target_rate
@@ -149,7 +157,7 @@ nest::error_neuron::State_::get(
 }
 
 void
-nest::error_neuron::State_::set(
+nest::critic_neuron::State_::set(
   const DictionaryDatum& d, const Parameters_& p, double delta_EL)
 {
   updateValue< double >( d, names::target_rate, target_rate_ ); // target_rate
@@ -166,15 +174,15 @@ nest::error_neuron::State_::set(
 }
 
 
-nest::error_neuron::Buffers_::Buffers_(
-  error_neuron& n )
+nest::critic_neuron::Buffers_::Buffers_(
+  critic_neuron& n )
   : logger_( n )
 {
 }
 
-nest::error_neuron::Buffers_::Buffers_(
+nest::critic_neuron::Buffers_::Buffers_(
   const Buffers_&,
-  error_neuron& n )
+  critic_neuron& n )
   : logger_( n )
 {
 }
@@ -183,7 +191,7 @@ nest::error_neuron::Buffers_::Buffers_(
  * Default and copy constructor for node
  * ---------------------------------------------------------------- */
 
-nest::error_neuron::error_neuron()
+nest::critic_neuron::critic_neuron()
   : EpropArchivingNode()
   , P_()
   , S_()
@@ -192,8 +200,8 @@ nest::error_neuron::error_neuron()
   recordablesMap_.create();
 }
 
-nest::error_neuron::error_neuron(
-  const error_neuron& n )
+nest::critic_neuron::critic_neuron(
+  const critic_neuron& n )
   : EpropArchivingNode( n )
   , P_( n.P_ )
   , S_( n.S_ )
@@ -206,14 +214,14 @@ nest::error_neuron::error_neuron(
  * ---------------------------------------------------------------- */
 
 void
-nest::error_neuron::init_state_( const Node& proto )
+nest::critic_neuron::init_state_( const Node& proto )
 {
-  const error_neuron& pr = downcast< error_neuron >( proto );
+  const critic_neuron& pr = downcast< critic_neuron >( proto );
   S_ = pr.S_;
 }
 
 void
-nest::error_neuron::init_buffers_()
+nest::critic_neuron::init_buffers_()
 {
   B_.delayed_rates_.clear(); // includes resize
 
@@ -225,7 +233,7 @@ nest::error_neuron::init_buffers_()
 }
 
 void
-nest::error_neuron::pre_run_hook()
+nest::critic_neuron::pre_run_hook()
 {
   B_.logger_
     .init(); // ensures initialization in case mm connected after Simulate
@@ -233,9 +241,18 @@ nest::error_neuron::pre_run_hook()
   const double h = Time::get_resolution().get_ms();
   V_.P33_ = std::exp( -h / P_.tau_m_ );
   V_.P30_ = 1 / P_.c_m_ * ( 1 - V_.P33_ ) * P_.tau_m_;
-  V_.step_start_ls_ = Time( Time::ms( std::max( P_.t_start_ls_, 0.0 ) ) ).get_steps();
+  // Which of these variable id actually used?
+  //V_.step_start_ls_ = Time( Time::ms( std::max( P_.t_start_ls_, 0.0 ) ) ).get_steps();
   V_.readout_signal_ = 0.;
   V_.target_signal_ = 0.;
+
+  V_.step_start_ls_ = (get_update_interval_steps()-1);
+
+  V_.prev1_V_c_ = 0.0;
+  V_.prev2_V_c_ = 0.0;
+  V_.prev3_V_c_ = 0.0;
+  V_.prev4_V_c_ = 0.0;
+  V_.V_c_ = 0.0;
 }
 
 /* ----------------------------------------------------------------
@@ -243,7 +260,7 @@ nest::error_neuron::pre_run_hook()
  */
 
 void
-nest::error_neuron::update_( Time const& origin,
+nest::critic_neuron::update_( Time const& origin,
   const long from,
   const long to)
 {
@@ -254,92 +271,43 @@ nest::error_neuron::update_( Time const& origin,
   const size_t buffer_size = kernel().connection_manager.get_min_delay();
 
   // allocate memory to store learning signal to be sent by learning signal events
-  size_t n_entries = 2;
+  size_t n_entries = 4;
   std::vector< double > learning_signal_buffer( n_entries*buffer_size, 0.0 );
-
-  // allocate memory to store readout signal to be sent by rate events
-  std::vector< double > readout_signal_buffer( buffer_size, 0.0 );
+  std::vector< double > temporal_diff_error_buffer( buffer_size, 0.0 );
 
   for ( long lag = from; lag < to; ++lag )
   {
     // DEBUG: added reset after each T to be compatible with tf code
     int t_mod_T = ( origin.get_steps() + lag - 3 ) % get_update_interval_steps();
-    if ( t_mod_T == 0 && ( P_.update_interval_reset_ ) )
+    long move = kernel().simulation_manager.get_reward_based_eprop_current_move();
+    if (move == 0 && t_mod_T == 0)
     {
       S_.y3_ = 0.0;
       B_.spikes_.clear();   // includes resize
     }
+
     // DEBUG: introduced factor ( 1 - exp( -dt / tau_m ) ) for campatibility wit tf code
     S_.y3_ = V_.P30_ * ( S_.y0_ + P_.I_e_ ) + V_.P33_ * S_.y3_ + ( 1 - V_.P33_ ) * B_.spikes_.get_value( lag );
     S_.y3_ = ( S_.y3_ < P_.V_min_ ? P_.V_min_ : S_.y3_ );
 
-    // compute the readout signal
-    double readout_signal = P_.regression_ ? S_.y3_ + P_.E_L_ : std::exp( S_.y3_ + P_.E_L_ );
-    // write exp( readout signal ) into the buffer which is used to send it to the other error neurons
-    // in case of a regression task we don't need this and therefore set it to zero
-    readout_signal_buffer[ lag ] = P_.regression_ ? 0.0 : readout_signal;
+    V_.prev4_V_c_ = V_.prev3_V_c_;
+    V_.prev3_V_c_ = V_.prev2_V_c_;
+    V_.prev2_V_c_ = V_.prev1_V_c_;
+    V_.prev1_V_c_ = V_.V_c_;
+    V_.V_c_ = S_.y3_ + P_.E_L_;
 
-    // DEBUG: changed sign (see tf code)
+    double temporal_diff_error = V_.reward_ + P_.rb_gamma_ * V_.prev3_V_c_ - V_.prev4_V_c_;
+    double normalized_learning_signal = 1.0;
+    double Return = 0.0;
+    double hot_encoded_id;
+    double entropy = 0.0;
+
     learning_signal_buffer[ n_entries*lag ] = origin.get_steps() + lag + 1;
 
-    // compute normalized learning signal from values stored in state_buffer_
-    // which now contains the correct normalization because in the meantime
-    // the other readout neurons have sent their membrane potential
-    // the entries of the state_buffer_ are
-    // 0: readout_signal, 1: target_signal, 2: normalization
-    double normalized_learning_signal;
-    if ( t_mod_T >= V_.step_start_ls_ )
-    {
-      // if recall is active, compute normalized learning signal
-      if ( P_.regression_ )
-      {
-        // if this is a regression task, use the bare membrane potential
-        // the normalization is not needed
-        normalized_learning_signal = V_.readout_signal_ - V_.target_signal_;
-      }
-      else
-      {
-        // if this is a classification task, use exp( membrane potential )
-        double normalization_rate = B_.normalization_rates_.get_value( lag ) + V_.readout_signal_;
-        normalized_learning_signal = V_.readout_signal_ / normalization_rate - V_.target_signal_;
-      }
-    }
-    else
-    {
-      // if recall is inactive, set normalized learning signal to zero
-      normalized_learning_signal = 0.0;
-      B_.normalization_rates_.get_value( lag );
-    }
 
-    // fill the state buffer with new values
-    if ( t_mod_T >= V_.step_start_ls_ - 1 )
+    if ( t_mod_T == 1 && origin.get_steps() > get_update_interval_steps())
     {
-      // if the recall is active, fill state_buffer_ with the current state
-      V_.readout_signal_ = readout_signal;
-      V_.target_signal_ = S_.target_rate_;
-      // normalization
-//      if ( P_.regression_ )
-//      {
-//        // if it is a regression task, we do not need the normalization
-//        // and we (arbitrarily) set it to 1
-//        V_.state_buffer_ [ 2 ] = 1.0;
-//      }
-//      else
-//      {
-//        // if this is a classification task, the normalization is given by
-//        // the sum of exp(readout_signal) over all readout neurons
-//        // this is the first contribution to this sum, the terms from the
-//        // other readout neurons is added in the handel function of the
-//        // DelayedRateConnectionEvent
-//        V_.state_buffer_ [ 2 ] = readout_signal;
-//      }
-    }
-    else
-    {
-      // if the recall is inactive, fill state_buffer_ with zeros
-      V_.readout_signal_ = 0.0;
-      V_.target_signal_ = 0.0;
-//      V_.state_buffer_ [ 2 ] = 1.0;
+      temporal_diff_error_buffer[lag + 0] = temporal_diff_error;
     }
 
     // write normalized learning signal into history. Use the previous time step:
@@ -348,8 +316,8 @@ nest::error_neuron::update_( Time const& origin,
     // previously, the function write_readout_history was used for this purpose
     Time const& t_norm_ls = Time::step( origin.get_steps() + lag );
     const double t_norm_ls_ms = t_norm_ls.get_ms();
-    eprop_history_.push_back( histentry_eprop( t_norm_ls_ms,
-          0.0, normalized_learning_signal, 0 ) );
+    rbeprop_history_.push_back( histentry_rbeprop( t_norm_ls_ms,
+          0.0, normalized_learning_signal, temporal_diff_error, 0.0, 0 ) );
 
     // store the normalized learning signal in the buffer which is send to
     // the recurrent neurons via the learning signal connection
@@ -360,34 +328,41 @@ nest::error_neuron::update_( Time const& origin,
     B_.logger_.record_data( origin.get_steps() + lag );
   }
 
+  TemporalDiffErrorConnectionEvent tde_event;
+  tde_event.set_coeffarray( temporal_diff_error_buffer );
+  kernel().event_delivery_manager.send_secondary( *this, tde_event );
+
   // send learning signal
   // TODO: it would be much more efficient to send this in larger batches
-  LearningSignalConnectionEvent drve;
+  RewardBasedLearningSignalConnectionEvent drve;
   drve.set_coeffarray( learning_signal_buffer );
   kernel().event_delivery_manager.send_secondary( *this, drve );
   // time one time step larger than t_mod_T_final because the readout has to
   // be sent one time step in advance so that the normalization can be computed
   // and the learning signal is ready as soon as the recall starts.
-  if ( !P_.regression_ )
-  {
-    // send readout signal only if this is a classification task
-    // rate connection to connect to other readout neurons
-    DelayedRateConnectionEvent readout_event;
-    readout_event.set_coeffarray( readout_signal_buffer );
-    kernel().event_delivery_manager.send_secondary( *this, readout_event );
-  }
-
   return;
 }
 
 bool
-nest::error_neuron::is_eprop_readout()
+nest::critic_neuron::is_eprop_readout()
     {
         return true;
     }
 
+bool
+nest::critic_neuron::is_eprop_critic()
+{
+  return true;
+}
+
+bool
+nest::critic_neuron::is_eprop_actor()
+{
+  return false;
+}
+
 void
-nest::error_neuron::handle(
+nest::critic_neuron::handle(
   DelayedRateConnectionEvent& e )
 {
   assert( 0 <= e.get_rport() && e.get_rport() < 3 );
@@ -395,32 +370,17 @@ nest::error_neuron::handle(
   const long delay = e.get_delay_steps();
   size_t i = 0;
   std::vector< unsigned int >::iterator it = e.begin();
-  if ( e.get_rport() == READOUT_SIG - MIN_RATE_RECEPTOR )
+
+  while ( it != e.end() )
   {
-    // handle port for readout signal
-    // The call to get_coeffvalue( it ) in this loop also advances the iterator it
-    while ( it != e.end() )
-    {
-      double readout_signal = e.get_coeffvalue( it );
-//      V_.state_buffer_ [ 2 ] += readout_signal;
-      B_.normalization_rates_.add_value( delay + i, readout_signal ) ;
-      ++i;
-    }
-  }
-  else  if ( e.get_rport() == TARGET_SIG - MIN_RATE_RECEPTOR )
-  {
-    // handle port for target signal
-    while ( it != e.end() )
-    {
-      // The call to get_coeffvalue( it ) in this loop also advances the iterator it
-      B_.delayed_rates_.add_value(delay + i, weight * 1. * e.get_coeffvalue( it ) ) ;
-      ++i;
-    }
+    double reward = e.get_coeffvalue( it );
+    V_.reward_ = reward;
+    ++i;
   }
 }
 
 void
-nest::error_neuron::handle( SpikeEvent& e )
+nest::critic_neuron::handle( SpikeEvent& e )
 {
   assert( e.get_delay_steps() > 0 );
 
@@ -434,7 +394,7 @@ nest::error_neuron::handle( SpikeEvent& e )
 }
 
 void
-nest::error_neuron::handle( CurrentEvent& e )
+nest::critic_neuron::handle( CurrentEvent& e )
 {
   assert( e.get_delay_steps() > 0 );
 
@@ -448,7 +408,7 @@ nest::error_neuron::handle( CurrentEvent& e )
 }
 
 void
-nest::error_neuron::handle( DataLoggingRequest& e )
+nest::critic_neuron::handle( DataLoggingRequest& e )
 {
   B_.logger_.handle( e );
 }

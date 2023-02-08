@@ -410,6 +410,48 @@ class NestModule(types.ModuleType):
         default=float("+inf"),
     )
 
+    reward_based_eprop_done = KernelAttribute(
+        "bool",
+        (
+            "Whether to sort connections by their source; increases"
+            + " construction time of presynaptic data structures, decreases"
+            + " simulation time if the average number of outgoing connections"
+            + " per neuron is smaller than the total number of threads"
+        ),
+        default=False,
+    )
+
+    reward_based_eprop_update_interval = KernelAttribute(
+        "float",
+        (
+            "Defines the time interval in ms at which the structural plasticity"
+            + " manager will make changes in the structure of the network ("
+            + " creation and deletion of plastic synapses)"
+        ),
+        default=1.,
+    )
+
+    reward_based_eprop_batch_size = KernelAttribute(
+        "int",
+        (
+            "Defines the time interval in ms at which the structural plasticity"
+            + " manager will make changes in the structure of the network ("
+            + " creation and deletion of plastic synapses)"
+        ),
+        default=1,
+    )
+
+    reward_based_eprop_enabled = KernelAttribute(
+        "bool",
+        (
+            "Whether to sort connections by their source; increases"
+            + " construction time of presynaptic data structures, decreases"
+            + " simulation time if the average number of outgoing connections"
+            + " per neuron is smaller than the total number of threads"
+        ),
+        default=True,
+    )
+
     # Kernel attribute indices, used for fast lookup in `ll_api.py`
     _kernel_attr_names = builtins.set(
         k for k, v in vars().items() if isinstance(v, KernelAttribute)

@@ -65,6 +65,25 @@ nest::SimulationManager::SimulationManager()
 {
 }
 
+nest::SimulationManager::EpropParameters::EpropParameters()
+  : update_interval_( 0 )
+  , eprop_plasticity_enabled_( false )
+  , batch_size_( 1 )
+{
+}
+
+nest::SimulationManager::EpropVariables::EpropVariables()
+  : episode_( 0 )
+  , trial_done_( false )
+  , prev_trial_done_( false )
+  , ce_reg_episode_( 0 )
+  , batch_elem_( 0 )
+  , move_( 0 )
+  , t_current_episode_( 0 )
+  , t_current_batch_elem_( 0 )
+{
+}
+
 void
 nest::SimulationManager::initialize()
 {
@@ -392,6 +411,11 @@ nest::SimulationManager::set_status( const DictionaryDatum& d )
 
     update_time_limit_ = t_new;
   }
+
+ updateValue< double >( d, names::reward_based_eprop_update_interval, eprop_params_.update_interval_ );
+ updateValue< long >( d, names::reward_based_eprop_batch_size, eprop_params_.batch_size_ );
+ updateValue< bool >( d, names::reward_based_eprop_enabled, eprop_params_.eprop_plasticity_enabled_ );
+ updateValue< bool >( d, names::reward_based_eprop_done, eprop_vars_.trial_done_ );
 }
 
 void
@@ -428,6 +452,40 @@ nest::SimulationManager::get_status( DictionaryDatum& d )
   def< double >( d, names::time_update, sw_update_.elapsed() );
   def< double >( d, names::time_gather_target_data, sw_gather_target_data_.elapsed() );
 #endif
+  def< double >( d, names::reward_based_eprop_update_interval, eprop_params_.update_interval_ );
+  def< long >( d, names::reward_based_eprop_batch_size, eprop_params_.batch_size_ );
+  def< bool >( d, names::reward_based_eprop_enabled, eprop_params_.eprop_plasticity_enabled_ );
+  def< bool >( d, names::reward_based_eprop_done, eprop_vars_.trial_done_ );
+}
+
+void
+nest::SimulationManager::update_time_reward_based_eprop_vars(Time const& origin,
+  const long from,
+  const long to)
+{
+  double t_ms = origin.get_ms();
+  if (eprop_vars_.trial_done_ == true && eprop_vars_.prev_trial_done_ == false)
+  {
+//    std::cerr << " DONE" << std::endl;
+    eprop_vars_.batch_elem_ = (eprop_vars_.batch_elem_ + 1) % eprop_params_.batch_size_;     
+    eprop_vars_.t_current_batch_elem_ = t_ms; 
+    eprop_vars_.t_batch_history_.push_back(t_ms);
+
+    if (eprop_vars_.batch_elem_ == 0)
+    {
+        eprop_vars_.episode_ += 1;
+        eprop_vars_.t_current_episode_ = t_ms; 
+    }
+  }
+
+  eprop_vars_.move_ = (t_ms - eprop_vars_.t_current_batch_elem_) / eprop_params_.update_interval_;
+
+  if (eprop_vars_.trial_done_ == true && eprop_vars_.prev_trial_done_ == false 
+          && eprop_vars_.episode_ == eprop_vars_.ce_reg_episode_ + 1)
+  {
+      eprop_vars_.ce_reg_episode_ += 1;
+  }
+  eprop_vars_.prev_trial_done_ = eprop_vars_.trial_done_;
 }
 
 void
@@ -791,6 +849,15 @@ nest::SimulationManager::update_()
       if ( print_time_ )
       {
         gettimeofday( &t_slice_begin_, NULL );
+      }
+
+
+      if ( is_reward_based_eprop_enabled() )
+      {
+#pragma omp single
+        {
+          update_time_reward_based_eprop_vars( clock_, from_step_, to_step_ );
+        }
       }
 
       if ( kernel().sp_manager.is_structural_plasticity_enabled()

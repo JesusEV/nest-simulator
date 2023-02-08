@@ -306,13 +306,30 @@ nest::iaf_psc_delta_eprop::update( Time const& origin,
   {
     long steps_including_lag = steps + lag;
     // DEBUG: added reset after each T to be compatible with tf code
-    if ( ( steps_including_lag - 1 ) % static_cast< int >( ( get_update_interval() / h) ) == 0 && ( P_.update_interval_reset_ ) )
+    
+    int t_mod_T = ( steps_including_lag - 1 ) % get_update_interval_steps();
+    if (kernel().simulation_manager.is_reward_based_eprop_enabled())
     {
-      S_.y3_ = 0.0;
-      S_.r_ = 0;
-      B_.spikes_.clear();   // includes resize
-      V_.reset_next_step_ = false;
+      long move = kernel().simulation_manager.get_reward_based_eprop_current_move();
+      if (move == 0 && t_mod_T == 1)
+      {
+        S_.y3_ = 0.0;
+        S_.r_ = 0;
+        B_.spikes_.clear();   // includes resize
+        V_.reset_next_step_ = false;
+      }
     }
+    else
+    {
+      if ( t_mod_T == 0 && ( P_.update_interval_reset_ ) )
+      {
+        S_.y3_ = 0.0;
+        S_.r_ = 0;
+        B_.spikes_.clear();   // includes resize
+        V_.reset_next_step_ = false;
+      }
+    }
+
     // DEBUG: introduce factor ( 1 - exp( -dt / tau_m ) ) for incoming spikes
     S_.y3_ = V_.P30_ * ( S_.y0_ + P_.I_e_ ) + V_.P33_ * S_.y3_
       // DEBUG II: in evidence accumulation this factor is not there
@@ -350,13 +367,27 @@ nest::iaf_psc_delta_eprop::update( Time const& origin,
     {
       // if neuron is refractory, the preudo derivative is set to zero
       // (achived by setting V_m = 0)
-      write_eprop_history( time_step, P_.V_th_, P_.V_th_ );
+      if (kernel().simulation_manager.is_reward_based_eprop_enabled())
+      {
+        write_rbeprop_history( time_step, P_.V_th_, P_.V_th_ );
+      }
+      else
+      {
+        write_eprop_history( time_step, P_.V_th_, P_.V_th_ );
+      }
       --S_.r_;
     }
     else
     {
       // if neuron is not refractory, write hist with value for pseudo derivative
-      write_eprop_history( time_step, S_.y3_ - P_.V_th_, P_.V_th_ );
+      if (kernel().simulation_manager.is_reward_based_eprop_enabled())
+      {
+        write_rbeprop_history( time_step, S_.y3_ - P_.V_th_, P_.V_th_ );
+      }
+      else
+      {
+        write_eprop_history( time_step, S_.y3_ - P_.V_th_, P_.V_th_ );
+      }
     }
 
     // set new input current
@@ -381,6 +412,18 @@ nest::iaf_psc_delta_eprop::is_eprop_readout()
 
 bool
 nest::iaf_psc_delta_eprop::is_eprop_adaptive()
+{
+  return false;
+}
+
+bool
+nest::iaf_psc_delta_eprop::is_eprop_critic()
+{
+  return false;
+}
+
+bool
+nest::iaf_psc_delta_eprop::is_eprop_actor()
 {
   return false;
 }
@@ -415,6 +458,14 @@ nest::iaf_psc_delta_eprop::handle( CurrentEvent& e )
 void
 nest::iaf_psc_delta_eprop::handle(
   LearningSignalConnectionEvent& e )
+{
+  // Add learning signal to hist entries
+  add_learning_to_hist( e );
+}
+
+void
+nest::iaf_psc_delta_eprop::handle(
+  RewardBasedLearningSignalConnectionEvent& e )
 {
   // Add learning signal to hist entries
   add_learning_to_hist( e );

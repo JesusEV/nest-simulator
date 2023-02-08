@@ -88,6 +88,10 @@ public:
 
   void sends_secondary_event( LearningSignalConnectionEvent& re );
 
+  void sends_secondary_event( RewardBasedLearningSignalConnectionEvent& re );
+
+  void sends_secondary_event( TemporalDiffErrorConnectionEvent& re );
+
   Node const& get_prototype() const;
 
   void set_model_id( int );
@@ -225,6 +229,20 @@ GenericModel< ElementT >::sends_secondary_event( DelayedRateConnectionEvent& re 
 template < typename ElementT >
 inline void
 GenericModel< ElementT >::sends_secondary_event( LearningSignalConnectionEvent& re )
+{
+  return proto_.sends_secondary_event( re );
+}
+
+template < typename ElementT >
+inline void
+GenericModel< ElementT >::sends_secondary_event( RewardBasedLearningSignalConnectionEvent& re )
+{
+  return proto_.sends_secondary_event( re );
+}
+
+template < typename ElementT >
+inline void
+GenericModel< ElementT >::sends_secondary_event( TemporalDiffErrorConnectionEvent& re )
 {
   return proto_.sends_secondary_event( re );
 }

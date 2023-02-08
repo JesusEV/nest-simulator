@@ -1,5 +1,5 @@
 /*
- *  rate_connection_delayed.h
+ *  eprop_temporal_diff_error_connection_delayed.h
  *
  *  This file is part of NEST.
  *
@@ -21,13 +21,15 @@
  */
 
 
-#ifndef RATE_CONNECTION_DELAYED_H
-#define RATE_CONNECTION_DELAYED_H
+#ifndef TEMPORAL_DIFF_ERROR_CONNECTION_DELAYED_H
+#define TEMPORAL_DIFF_ERROR_CONNECTION_DELAYED_H
 
 #include "connection.h"
 
 namespace nest
 {
+
+// *Je* TODO: improve general documentation for this file.
 
 /* BeginUserDocs: synapse, connection with delay, rate
 
@@ -39,18 +41,16 @@ Synapse type for rate connections with delay
 Description
 +++++++++++
 
-``rate_connection_delayed`` is a connector to create connections with delay
+rate_connection_delayed is a connector to create connections with delay
 between rate model neurons.
 
 To create instantaneous rate connections please use
-the synapse type ``rate_connection_instantaneous``.
-
-See also [1]_.
+the synapse type rate_connection_instantaneous.
 
 Transmits
 +++++++++
 
-DelayedRateConnectionEvent
+TemporalDiffErrorConnectionEvent
 
 References
 ++++++++++
@@ -72,20 +72,20 @@ EndUserDocs */
  * has the properties weight, delay and receiver port.
  */
 template < typename targetidentifierT >
-class RateConnectionDelayed : public Connection< targetidentifierT >
+class TemporalDiffErrorConnectionDelayed : public Connection< targetidentifierT >
 {
 
 public:
   // this line determines which common properties to use
-  typedef CommonSynapseProperties CommonPropertiesType;
+  typedef CommonSynapseProperties CommonPropertiesType; //
   typedef Connection< targetidentifierT > ConnectionBase;
-  typedef DelayedRateConnectionEvent EventType;
+  typedef TemporalDiffErrorConnectionEvent EventType;
 
   /**
    * Default Constructor.
    * Sets default values for all parameters. Needed by GenericConnectorModel.
    */
-  RateConnectionDelayed()
+  TemporalDiffErrorConnectionDelayed()
     : ConnectionBase()
     , weight_( 1.0 )
   {
@@ -143,7 +143,7 @@ private:
 
 template < typename targetidentifierT >
 void
-RateConnectionDelayed< targetidentifierT >::get_status( DictionaryDatum& d ) const
+TemporalDiffErrorConnectionDelayed< targetidentifierT >::get_status( DictionaryDatum& d ) const
 {
   ConnectionBase::get_status( d );
   def< double >( d, names::weight, weight_ );
@@ -152,7 +152,7 @@ RateConnectionDelayed< targetidentifierT >::get_status( DictionaryDatum& d ) con
 
 template < typename targetidentifierT >
 void
-RateConnectionDelayed< targetidentifierT >::set_status( const DictionaryDatum& d, ConnectorModel& cm )
+TemporalDiffErrorConnectionDelayed< targetidentifierT >::set_status( const DictionaryDatum& d, ConnectorModel& cm )
 {
   ConnectionBase::set_status( d, cm );
   updateValue< double >( d, names::weight, weight_ );
@@ -160,4 +160,5 @@ RateConnectionDelayed< targetidentifierT >::set_status( const DictionaryDatum& d
 
 } // namespace
 
-#endif /* #ifndef RATE_CONNECTION_DELAYED_H */
+#endif /* #ifndef TEMPORAL_DIFF_ERROR_CONNECTION_DELAYED_H */
+

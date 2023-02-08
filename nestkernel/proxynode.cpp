@@ -79,6 +79,18 @@ proxynode::sends_secondary_event( LearningSignalConnectionEvent& re )
   kernel().model_manager.get_node_model( get_model_id() )->sends_secondary_event( re );
 }
 
+void
+proxynode::sends_secondary_event( RewardBasedLearningSignalConnectionEvent& re )
+{
+  kernel().model_manager.get_node_model( get_model_id() )->sends_secondary_event( re );
+}
+
+void
+proxynode::sends_secondary_event( TemporalDiffErrorConnectionEvent& re )
+{
+  kernel().model_manager.get_node_model( get_model_id() )->sends_secondary_event( re );
+}
+
 /**
  * @returns type of signal this node produces
  * used in check_connection to only connect neurons which send / receive

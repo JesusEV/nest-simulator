@@ -91,6 +91,10 @@ public:
 
   void sends_secondary_event( LearningSignalConnectionEvent& );
 
+  void sends_secondary_event( RewardBasedLearningSignalConnectionEvent& );
+
+  void sends_secondary_event( TemporalDiffErrorConnectionEvent& );
+
   void
   handle( SpikeEvent& )
   {

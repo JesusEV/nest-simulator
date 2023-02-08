@@ -74,12 +74,20 @@ public:
     std::deque< histentry_eprop >::iterator* start,
     std::deque< histentry_eprop >::iterator* finish );
 
+  void get_eprop_history( double t1,
+    double t2,
+    double t3,
+    double t4,
+    std::deque< histentry_rbeprop >::iterator* start,
+    std::deque< histentry_rbeprop >::iterator* finish );
+
   void get_spike_history( double t1,
     double t2,
     std::deque< double >::iterator* start,
     std::deque< double >::iterator* finish);
 
   void tidy_eprop_history( double t1 );
+  void tidy_rbeprop_history( double t1 );
 
   double get_eprop_history_len() const;
   double get_spike_history_len() const;
@@ -95,6 +103,7 @@ public:
 
   //TODO: make history private again!
   std::deque< histentry_eprop > eprop_history_;
+  std::deque< histentry_rbeprop > rbeprop_history_;
   std::deque< double > spike_history_;
 
 protected:
@@ -108,10 +117,14 @@ protected:
   void write_eprop_history( Time const& t_sp,
     double V_m,
     double V_th );
+  void write_rbeprop_history( Time const& t_sp,
+    double V_m,
+    double V_th );
 
   void write_spike_history( Time const& t_sp );
 
   void add_learning_to_hist( LearningSignalConnectionEvent& e );
+  void add_learning_to_hist( RewardBasedLearningSignalConnectionEvent& e );
 
   double pseudo_deriv( double diff_V_m_V_th, double V_th_const ) const;
   // TODO: V_th as variable of archiving node? Or archiving node as template class?
@@ -128,6 +141,10 @@ protected:
     std::deque< histentry_eprop >::iterator* start,
     std::deque< histentry_eprop >::iterator* finish );
 
+  void find_eprop_hist_entries( double t1,
+    double t2,
+    std::deque< histentry_rbeprop >::iterator* start,
+    std::deque< histentry_rbeprop >::iterator* finish );
 
 private:
 

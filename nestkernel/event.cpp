@@ -158,6 +158,18 @@ LearningSignalConnectionEvent::operator()()
 }
 
 void
+RewardBasedLearningSignalConnectionEvent::operator()()
+{
+  receiver_->handle( *this );
+}
+
+void
+TemporalDiffErrorConnectionEvent::operator()()
+{
+  receiver_->handle( *this );
+}
+
+void
 DiffusionConnectionEvent::operator()()
 {
   receiver_->handle( *this );

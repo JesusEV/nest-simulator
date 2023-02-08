@@ -183,6 +183,13 @@ public:
    */
   virtual void reset_timers_for_dynamics();
 
+  bool is_reward_based_eprop_enabled() const;
+//  bool get_reward_based_eprop_trial_done() const;
+  long get_reward_based_eprop_current_move() const;
+  long get_reward_based_eprop_episode() const;
+  std::deque< double > & get_t_batch_history();
+  void update_time_reward_based_eprop_vars(Time const& origin, const long from, const long to);
+
 private:
   void call_update_(); //!< actually run simulation, aka wrap update_
   void update_();      //! actually perform simulation
@@ -230,7 +237,69 @@ private:
   Stopwatch sw_update_;
   Stopwatch sw_gather_target_data_;
 #endif
+
+  struct EpropParameters
+  {
+    double update_interval_;
+    long batch_size_;
+    bool eprop_plasticity_enabled_;
+
+    EpropParameters();
+  };
+  EpropParameters eprop_params_;
+
+  struct EpropVariables
+  {
+    long episode_; // *cJe*: current training reinforcement learning episode
+    long ce_reg_episode_; // *cJe*: current training reinforcement learning episode used by ce_regularization.
+                          // *Je* TODO: remove this variable.
+    long batch_elem_;  // *cJe*: current item (or trial) in the batch that is being processed, e.g. if
+                       // batch_size = 64, then last item in the batch is number 63.
+    long move_;  // *cJe* This variable counts the number of actions (or moves) that 
+                 // the agent has performed on the environment for a single trial.
+    long t_current_episode_;  // *cJe* Time (ms) at which the current episode started.
+    long t_current_batch_elem_; // *cJe* Time (ms) at which the current batch element (or trial) started.
+
+    bool trial_done_;   // *cJe* bool flag boolean flag that is True if the current trial has ended.
+    bool prev_trial_done_;   // *cJe* bool flag boolean flag that is True if the current trial has ended.
+
+    std::deque< double > t_batch_history_; // *cJe* This vector accumulates t_current_batch_elems.
+                                            // *Je* TODO: Optimize the usage of this vector.
+    EpropVariables();
+  };
+  EpropVariables eprop_vars_;
+
 };
+
+//inline bool
+//SimulationManager::get_reward_based_eprop_trial_done() const
+//{
+//  return eprop_vars_.trial_done_;
+//}
+
+inline bool
+SimulationManager::is_reward_based_eprop_enabled() const
+{
+  return eprop_params_.eprop_plasticity_enabled_;
+}
+
+inline long 
+SimulationManager::get_reward_based_eprop_current_move() const
+{
+  return eprop_vars_.move_;
+}
+
+inline long 
+SimulationManager::get_reward_based_eprop_episode() const
+{
+  return eprop_vars_.episode_;
+}
+
+inline std::deque< double > &
+SimulationManager::get_t_batch_history()
+{
+  return eprop_vars_.t_batch_history_;
+}
 
 inline Time const&
 SimulationManager::get_slice_origin() const

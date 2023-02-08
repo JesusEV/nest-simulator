@@ -81,12 +81,36 @@ public:
   friend bool operator<( const histentry_eprop he, double  t );
 };
 
+// entry for eprop with two entries: one for the learning signal and one for the membrane potential
+class histentry_rbeprop
+{
+public:
+  histentry_rbeprop( double t, double V_m, double learning_signal,
+          double temporal_diff_error, double entropy_reg_factor, size_t access_counter);
+
+  double t_; //!< point in time when spike occurred (in ms)
+  double V_m_; // used to store the pseudo derivative
+  double learning_signal_;
+  double temporal_diff_error_;
+  double entropy_reg_factor_;
+  //! how often this entry was accessed (to enable removal, once read by all
+  //! neurons which need it)
+  size_t access_counter_;
+
+  friend bool operator<( const histentry_rbeprop he, double  t );
+};
+
 inline bool operator<( const histentry_extended he, double t )
 {
     return ( he.t_ ) < t;
 }
 
 inline bool operator<( const histentry_eprop he, double t )
+{
+    return ( he.t_ ) < t;
+}
+
+inline bool operator<( const histentry_rbeprop he, double t )
 {
     return ( he.t_ ) < t;
 }

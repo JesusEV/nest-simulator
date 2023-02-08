@@ -154,6 +154,12 @@
 #include "urbanczik_synapse.h"
 #include "vogels_sprekeler_synapse.h"
 
+#include "eprop_actor_neuron.h"
+#include "eprop_critic_neuron.h"
+#include "eprop_temporal_diff_error_connection_delayed.h"
+#include "reward_based_learning_signal_connection_delayed.h"
+#include "reward_based_eprop_connection.h"
+
 // Includes from nestkernel:
 #include "common_synapse_properties.h"
 #include "connector_model_impl.h"
@@ -222,6 +228,8 @@ ModelsModule::init( SLIInterpreter* )
 
   kernel().model_manager.register_node_model< aif_psc_delta_eprop >( "aif_psc_delta_eprop" );
   kernel().model_manager.register_node_model< error_neuron >( "error_neuron" );
+  kernel().model_manager.register_node_model< actor_neuron >( "actor_neuron" );
+  kernel().model_manager.register_node_model< critic_neuron >( "critic_neuron" );
   kernel().model_manager.register_node_model< iaf_chs_2007 >( "iaf_chs_2007" );
   kernel().model_manager.register_node_model< iaf_psc_alpha >( "iaf_psc_alpha" );
   kernel().model_manager.register_node_model< iaf_psc_alpha_canon >(
@@ -277,6 +285,9 @@ ModelsModule::init( SLIInterpreter* )
   kernel().model_manager.register_node_model< correlospinmatrix_detector >( "correlospinmatrix_detector" );
   kernel().model_manager.register_node_model< volume_transmitter >( "volume_transmitter" );
 
+  kernel().model_manager.register_node_model< actor_neuron >( "eprop_actor_neuron" );
+  kernel().model_manager.register_node_model< critic_neuron >( "eprop_critic_neuron" );
+
 #ifdef HAVE_GSL
   kernel().model_manager.register_node_model< iaf_chxk_2008 >( "iaf_chxk_2008" );
   kernel().model_manager.register_node_model< iaf_cond_alpha >( "iaf_cond_alpha" );
@@ -325,6 +336,7 @@ ModelsModule::init( SLIInterpreter* )
     "clopath_synapse", default_connection_model_flags | RegisterConnectionModelFlags::REQUIRES_CLOPATH_ARCHIVING );
   register_connection_model< cont_delay_synapse >( "cont_delay_synapse" );
   register_connection_model< eprop_synapse >( "eprop_synapse" );
+  register_connection_model< reward_based_eprop_synapse >( "reward_based_eprop_synapse" );
   register_connection_model< ht_synapse >( "ht_synapse" );
   register_connection_model< jonke_synapse >( "jonke_synapse" );
   register_connection_model< quantal_stp_synapse >( "quantal_stp_synapse" );
@@ -354,8 +366,16 @@ ModelsModule::init( SLIInterpreter* )
     "rate_connection_instantaneous", RegisterConnectionModelFlags::SUPPORTS_WFR );
   register_secondary_connection_model< RateConnectionDelayed >(
     "rate_connection_delayed", RegisterConnectionModelFlags::HAS_DELAY );
+
   register_secondary_connection_model< LearningSignalConnectionDelayed >(
     "learning_signal_connection_delayed", RegisterConnectionModelFlags::HAS_DELAY );
+
+  register_secondary_connection_model< RewardBasedLearningSignalConnectionDelayed >(
+    "reward_based_learning_signal_connection_delayed", RegisterConnectionModelFlags::HAS_DELAY );
+
+  register_secondary_connection_model< TemporalDiffErrorConnectionDelayed >(
+    "temporal_diff_error_connection_delayed", RegisterConnectionModelFlags::HAS_DELAY );
+
   register_secondary_connection_model< DiffusionConnection >(
     "diffusion_connection", RegisterConnectionModelFlags::SUPPORTS_WFR );
 }

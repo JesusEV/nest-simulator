@@ -422,6 +422,45 @@ Node::sends_secondary_event( LearningSignalConnectionEvent& )
   throw IllegalConnection();
 }
 
+void
+Node::handle( RewardBasedLearningSignalConnectionEvent& )
+{
+  throw UnexpectedEvent();
+}
+
+port
+Node::handles_test_event( RewardBasedLearningSignalConnectionEvent&, rport )
+{
+  throw IllegalConnection( "The target node cannot handle learning signal events or"
+     " synapse is not of type RewardBasedLearningSignalConnectionDelayed." );
+  return invalid_port;
+}
+
+void
+Node::sends_secondary_event( RewardBasedLearningSignalConnectionEvent& )
+{
+  throw IllegalConnection();
+}
+
+void
+Node::handle( TemporalDiffErrorConnectionEvent& )
+{
+  throw UnexpectedEvent();
+}
+
+port
+Node::handles_test_event( TemporalDiffErrorConnectionEvent&, rport )
+{
+  throw IllegalConnection();
+  return invalid_port;
+}
+
+void
+Node::sends_secondary_event( TemporalDiffErrorConnectionEvent& )
+{
+  throw IllegalConnection();
+}
+
 double
 Node::get_K_value( double )
 {
@@ -460,6 +499,18 @@ Node::is_eprop_readout()
 
 bool
 Node::is_eprop_adaptive()
+{
+  throw UnexpectedEvent();
+}
+
+bool
+Node::is_eprop_critic()
+{
+  throw UnexpectedEvent();
+}
+
+bool
+Node::is_eprop_actor()
 {
   throw UnexpectedEvent();
 }
@@ -543,6 +594,17 @@ nest::Node::get_eprop_history( double,
 }
 
 void
+nest::Node::get_eprop_history( double,
+  double,
+  double,
+  double,
+  std::deque< histentry_rbeprop >::iterator*,
+  std::deque< histentry_rbeprop >::iterator* )
+{
+  throw UnexpectedEvent();
+}
+
+void
 nest::Node::get_spike_history( double,
   double,
   std::deque< double >::iterator*,
@@ -561,6 +623,12 @@ nest::Node::get_spike_history_len( ) const
 
 void
 Node::tidy_eprop_history( double )
+{
+    throw UnexpectedEvent();
+}
+
+void
+Node::tidy_rbeprop_history( double )
 {
     throw UnexpectedEvent();
 }

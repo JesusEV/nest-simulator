@@ -145,6 +145,11 @@ set( models_sources
     vogels_sprekeler_synapse.h
     weight_recorder.h weight_recorder.cpp
     spike_dilutor.h spike_dilutor.cpp
+    eprop_actor_neuron.h eprop_actor_neuron.cpp
+    eprop_critic_neuron.h eprop_critic_neuron.cpp
+    eprop_temporal_diff_error_connection_delayed.h
+    reward_based_learning_signal_connection_delayed.h
+    reward_based_eprop_connection.h
     )
 
 add_library( models ${models_sources} )
