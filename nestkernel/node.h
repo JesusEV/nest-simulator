@@ -26,6 +26,7 @@
 // C++ includes:
 #include <bitset>
 #include <deque>
+#include <queue>
 #include <sstream>
 #include <string>
 #include <utility>
@@ -504,6 +505,14 @@ public:
   virtual long get_shift() const;
 
   /**
+   * Get sum of broadcast delay of learning signals and connection delay from recurrent to output neurons.
+   *
+   * @throws IllegalConnection
+   */
+  
+  virtual long get_delay_total() const;
+  
+  /**
    * Register current update in the update history and deregister previous update.
    *
    * @throws IllegalConnection
@@ -531,6 +540,8 @@ public:
    * @throws IllegalConnection
    */
   virtual bool is_eprop_recurrent_node() const;
+
+  virtual void initialize_pre_syn_buffer( std::queue< double >& pre_syn_buffer );    
 
 
   /**
@@ -828,6 +839,7 @@ public:
     double& e_bar,
     double& epsilon,
     double& weight,
+    std::queue< double >& pre_syn_buffer,    
     const CommonSynapseProperties& cp,
     WeightOptimizer* optimizer );
 

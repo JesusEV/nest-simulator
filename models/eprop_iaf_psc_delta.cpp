@@ -88,6 +88,9 @@ nest::eprop_iaf_psc_delta::Parameters_::Parameters_()
   , surrogate_gradient_function_( "piecewise_linear" )
   , kappa_( 0.97 )
   , eprop_isi_trace_cutoff_( std::numeric_limits< long >::max() )
+  , delay_rec_out_(1)
+  , delay_out_rec_(1)
+  , delay_total_(1)     
 {
 }
 
@@ -125,6 +128,8 @@ nest::eprop_iaf_psc_delta::Parameters_::get( DictionaryDatum& d ) const
   def< std::string >( d, names::surrogate_gradient_function, surrogate_gradient_function_ );
   def< double >( d, names::kappa, kappa_ );
   def< long >( d, names::eprop_isi_trace_cutoff, eprop_isi_trace_cutoff_ );
+  def< long >( d, names::delay_rec_out, delay_rec_out_);
+  def< long >( d, names::delay_out_rec, delay_out_rec_);      
 }
 
 double
@@ -178,6 +183,8 @@ nest::eprop_iaf_psc_delta::Parameters_::set( const DictionaryDatum& d, Node* nod
   updateValueParam< std::string >( d, names::surrogate_gradient_function, surrogate_gradient_function_, node );
   updateValueParam< double >( d, names::kappa, kappa_, node );
   updateValueParam< long >( d, names::eprop_isi_trace_cutoff, eprop_isi_trace_cutoff_, node );
+  updateValueParam< long >( d, names::delay_rec_out, delay_rec_out_, node );
+  updateValueParam< long >( d, names::delay_out_rec, delay_out_rec_, node );
 
   if ( V_reset_ >= V_th_ )
   {
@@ -216,6 +223,18 @@ nest::eprop_iaf_psc_delta::Parameters_::set( const DictionaryDatum& d, Node* nod
   {
     throw BadProperty( "Cutoff of integration of eprop trace between spikes eprop_isi_trace_cutoff ≥ 0 required." );
   }
+
+  if ( delay_rec_out_ < 1 )
+  {
+    throw BadProperty( "Connection delay from recurrent to output neuron ≥ 1 required." );
+  }
+
+  if ( delay_out_rec_ < 1 )
+  {
+    throw BadProperty( "Broadcast delay of learning signals ≥ 1 required." );
+  }  
+
+  delay_total_ = delay_rec_out_ + ( delay_out_rec_ - 1 );   
 
   return delta_EL;
 }
@@ -290,6 +309,8 @@ nest::eprop_iaf_psc_delta::pre_run_hook()
   B_.logger_.init();
 
   compute_surrogate_gradient = select_surrogate_gradient( P_.surrogate_gradient_function_ );
+  update_pre_syn_buffer = P_.delay_total_ == 1? &EpropArchivingNodeRecurrent::update_pre_syn_buffer_one_entry 
+                                            : &EpropArchivingNodeRecurrent::update_pre_syn_buffer_multiple_entries;
 
   const double h = Time::get_resolution().get_ms();
 
@@ -320,6 +341,11 @@ nest::eprop_iaf_psc_delta::pre_run_hook()
   assert( V_.RefractoryCounts_ >= 0 );
 
   V_.P_z_in_ = 1.0;
+
+  for ( long t = -P_.delay_rec_out_; t < 0; ++t )
+  {
+    emplace_new_eprop_history_entry( t );
+  }
 }
 
 long
@@ -467,6 +493,7 @@ eprop_iaf_psc_delta::compute_gradient( const long t_spike,
   double& e_bar,
   double& epsilon,
   double& weight,
+  std::queue< double >& pre_syn_buffer,    
   const CommonSynapseProperties& cp,
   WeightOptimizer* optimizer )
 {
@@ -479,15 +506,13 @@ eprop_iaf_psc_delta::compute_gradient( const long t_spike,
 
   const EpropSynapseCommonProperties& ecp = static_cast< const EpropSynapseCommonProperties& >( cp );
 
-  auto eprop_hist_it = get_eprop_history( t_spike_previous - 1 );
+  auto eprop_hist_it = get_eprop_history( t_spike_previous - P_.delay_total_ );
 
   const long t_compute_until = std::min( t_spike_previous + P_.eprop_isi_trace_cutoff_, t_spike );
 
   for ( long t = t_spike_previous; t < t_compute_until; ++t, ++eprop_hist_it )
   {
-    z = z_previous_buffer;
-    z_previous_buffer = z_current_buffer;
-    z_current_buffer = 0.0;
+    ( this->*update_pre_syn_buffer )(z, z_current_buffer, z_previous_buffer, pre_syn_buffer, t_spike, t);  
 
     psi = eprop_hist_it->surrogate_gradient_;
     L = eprop_hist_it->learning_signal_;

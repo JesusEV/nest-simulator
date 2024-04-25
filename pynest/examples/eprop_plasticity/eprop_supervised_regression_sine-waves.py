@@ -109,10 +109,12 @@ np.random.seed(rng_seed)  # fix numpy random seed
 # The task's temporal structure is then defined, once as time steps and once as durations in milliseconds.
 
 n_batch = 1  # batch size, 1 in reference [2]
-n_iter = 5  # number of iterations, 2000 in reference [2]
+n_iter = 150  # number of iterations, 2000 in reference [2]
 
 steps = {
     "sequence": 1000,  # time steps of one full sequence
+    "delay_rec_out": 1,  # time steps of connection delay from recurrent to output neurons
+    "delay_out_rec": 1,  # time steps of broadcast delay of learning signals          
 }
 
 steps["learning_window"] = steps["sequence"]  # time steps of window with non-zero learning signals
@@ -143,7 +145,7 @@ duration.update({key: value * duration["step"] for key, value in steps.items()})
 # objects and set some NEST kernel parameters.
 
 params_setup = {
-    "print_time": False,  # if True, print time progress bar during simulation, set False if run as code cell
+    "print_time": True,  # if True, print time progress bar during simulation, set False if run as code cell
     "resolution": duration["step"],
     "total_num_virtual_procs": 1,  # number of virtual processes, set in case of distributed computing
 }
@@ -169,11 +171,13 @@ model_nrn_rec = "eprop_iaf"
 params_nrn_out = {
     "C_m": 1.0,  # pF, membrane capacitance - takes effect only if neurons get current input (here not the case)
     "E_L": 0.0,  # mV, leak / resting membrane potential
-    "eprop_isi_trace_cutoff": 10,  # cutoff of integration of eprop trace between spikes
+    "eprop_isi_trace_cutoff": 10**2,  # cutoff of integration of eprop trace between spikes
     "I_e": 0.0,  # pA, external current input
     "regular_spike_arrival": False,  # If True, input spikes arrive at end of time step, if False at beginning
     "tau_m": 30.0,  # ms, membrane time constant
     "V_m": 0.0,  # mV, initial value of the membrane voltage
+    "delay_out_rec": steps["delay_out_rec"],  # ms, broadcast delay of learning signals         
+    "delay_rec_out": steps["delay_rec_out"],  # ms, connection delay from recurrent to output neurons     
 }
 
 params_nrn_rec = {
@@ -181,7 +185,7 @@ params_nrn_rec = {
     "C_m": 1.0,
     "c_reg": 300.0 / duration["sequence"],  # firing rate regularization scaling
     "E_L": 0.0,
-    "eprop_isi_trace_cutoff": 10,
+    "eprop_isi_trace_cutoff": 10**2,
     "f_target": 10.0,  # spikes/s, target firing rate for firing rate regularization
     "gamma": 0.3,  # height scaling of the pseudo-derivative
     "I_e": 0.0,
@@ -192,6 +196,8 @@ params_nrn_rec = {
     "V_m": 0.0,
     "V_th": 0.03,  # mV, spike threshold membrane voltage
     "kappa": 0.97,  # low-pass filter of the eligibility trace
+    "delay_out_rec": steps["delay_out_rec"],  # ms, broadcast delay of learning signals        
+    "delay_rec_out": steps["delay_rec_out"],  # ms, connection delay from recurrent to output neurons    
 }
 
 if model_nrn_rec == "eprop_iaf_psc_delta":
@@ -284,7 +290,7 @@ params_common_syn_eprop = {
     "optimizer": {
         "type": "gradient_descent",  # algorithm to optimize the weights
         "batch_size": n_batch,
-        "eta": 1e-4,  # learning rate
+        "eta": 5e-3,  # learning rate
         "Wmin": -100.0,  # pA, minimal limit of the synaptic weights
         "Wmax": 100.0,  # pA, maximal limit of the synaptic weights
     },
@@ -304,10 +310,11 @@ params_syn_rec["weight"] = weights_rec_rec
 
 params_syn_out = params_syn_base.copy()
 params_syn_out["weight"] = weights_rec_out
+params_syn_out["delay"] = steps["delay_rec_out"] * duration["step"]
 
 params_syn_feedback = {
     "synapse_model": "eprop_learning_signal_connection",
-    "delay": duration["step"],
+    "delay": steps["delay_out_rec"] * duration["step"],
     "weight": weights_out_rec,
 }
 
@@ -486,6 +493,8 @@ target_signal = events_mm_out["target_signal"]
 
 error = (readout_signal - target_signal) ** 2
 loss = 0.5 * np.add.reduceat(error, np.arange(0, steps["task"], steps["sequence"]))
+
+print(loss); exit()
 
 # %% ###########################################################################################################
 # Plot results

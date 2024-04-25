@@ -302,16 +302,20 @@ public:
     double& e_bar,
     double& epsilon,
     double& weight,
+    std::queue< double >& pre_syn_buffer,     
     const CommonSynapseProperties& cp,
     WeightOptimizer* optimizer ) override;
 
   void pre_run_hook() override;
-  long get_shift() const override;
+  long get_shift() const override;    
   bool is_eprop_recurrent_node() const override;
   void update( Time const&, const long, const long ) override;
 
   //! Get maximum number of time steps integrated between two consecutive spikes.
   long get_eprop_isi_trace_cutoff() override;
+
+  //! Get sum of broadcast delay of learning signals and connection delay from recurrent to output neurons.
+  long get_delay_total() const override;  
 
 protected:
   void init_buffers_() override;
@@ -381,6 +385,15 @@ private:
     //! Number of time steps integrated between two consecutive spikes is equal to the minimum between
     //! eprop_isi_trace_cutoff_ and the inter-spike distance.
     long eprop_isi_trace_cutoff_;
+
+    //! Connection delay from recurrent to output neurons.
+    long delay_rec_out_;
+
+    //! Broadcast delay of learning signals.
+    long delay_out_rec_;
+
+    //! Sum of broadcast delay of learning signals and connection delay from recurrent to output neurons.
+    long delay_total_;
 
     //! Default constructor.
     Parameters_();
@@ -527,6 +540,12 @@ inline long
 eprop_iaf_adapt::get_eprop_isi_trace_cutoff()
 {
   return P_.eprop_isi_trace_cutoff_;
+}
+
+inline long
+eprop_iaf_adapt::get_delay_total() const
+{
+  return P_.delay_total_;
 }
 
 inline size_t

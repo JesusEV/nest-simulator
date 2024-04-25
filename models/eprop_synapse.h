@@ -327,6 +327,9 @@ private:
    *  @note Pointer is set by check_connection() and deleted by delete_optimizer().
    */
   WeightOptimizer* optimizer_;
+
+  //! Queue of length delay_total_ to hold previous spiking variables.
+  std::queue< double > pre_syn_buffer_;    
 };
 
 template < typename targetidentifierT >
@@ -443,9 +446,9 @@ eprop_synapse< targetidentifierT >::check_connection( Node& s,
   const CommonPropertiesType& cp )
 {
   // When we get here, delay has been set so we can check it.
-  if ( get_delay_steps() != 1 )
+  if ( get_delay_steps() < 1 )
   {
-    throw IllegalConnection( "eprop synapses currently require a delay of one simulation step" );
+    throw IllegalConnection( "Connection delay of eprop synapses ≥ 1 required." );
   }
 
   ConnTestDummyNode dummy_target;
@@ -473,10 +476,14 @@ eprop_synapse< targetidentifierT >::send( Event& e, size_t thread, const EpropSy
 
   const long t_spike = e.get_stamp().get_steps();
 
-  if ( t_spike_previous_ != 0 )
+  if ( t_spike_previous_ == 0 )
+  {
+    target->initialize_pre_syn_buffer(pre_syn_buffer_);  
+  }
+  else
   {
     target->compute_gradient(
-      t_spike, t_spike_previous_, z_previous_buffer_, z_bar_, e_bar_, epsilon_, weight_, cp, optimizer_ );
+      t_spike, t_spike_previous_, z_previous_buffer_, z_bar_, e_bar_, epsilon_, weight_, pre_syn_buffer_, cp, optimizer_ );
   }
 
   const long eprop_isi_trace_cutoff = target->get_eprop_isi_trace_cutoff();

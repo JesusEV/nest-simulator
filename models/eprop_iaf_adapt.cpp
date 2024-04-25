@@ -87,6 +87,9 @@ eprop_iaf_adapt::Parameters_::Parameters_()
   , V_th_( -55.0 - E_L_ )
   , kappa_( 0.97 )
   , eprop_isi_trace_cutoff_( std::numeric_limits< long >::max() )
+  , delay_rec_out_(1)
+  , delay_out_rec_(1)
+  , delay_total_(1)     
 {
 }
 
@@ -137,6 +140,8 @@ eprop_iaf_adapt::Parameters_::get( DictionaryDatum& d ) const
   def< double >( d, names::V_th, V_th_ + E_L_ );
   def< double >( d, names::kappa, kappa_ );
   def< long >( d, names::eprop_isi_trace_cutoff, eprop_isi_trace_cutoff_ );
+  def< long >( d, names::delay_rec_out, delay_rec_out_);
+  def< long >( d, names::delay_out_rec, delay_out_rec_);      
 }
 
 double
@@ -169,7 +174,9 @@ eprop_iaf_adapt::Parameters_::set( const DictionaryDatum& d, Node* node )
   updateValueParam< double >( d, names::tau_m, tau_m_, node );
   updateValueParam< double >( d, names::kappa, kappa_, node );
   updateValueParam< long >( d, names::eprop_isi_trace_cutoff, eprop_isi_trace_cutoff_, node );
-
+  updateValueParam< long >( d, names::delay_rec_out, delay_rec_out_, node );
+  updateValueParam< long >( d, names::delay_out_rec, delay_out_rec_, node );
+  
   if ( adapt_beta_ < 0 )
   {
     throw BadProperty( "Threshold adaptation prefactor adapt_beta ≥ 0 required." );
@@ -219,6 +226,18 @@ eprop_iaf_adapt::Parameters_::set( const DictionaryDatum& d, Node* node )
   {
     throw BadProperty( "Cutoff of integration of eprop trace between spikes eprop_isi_trace_cutoff ≥ 0 required." );
   }
+
+  if ( delay_rec_out_ < 1 )
+  {
+    throw BadProperty( "Connection delay from recurrent to output neuron ≥ 1 required." );
+  }
+
+  if ( delay_out_rec_ < 1 )
+  {
+    throw BadProperty( "Broadcast delay of learning signals ≥ 1 required." );
+  }  
+
+  delay_total_ = delay_rec_out_ + ( delay_out_rec_ - 1 ); 
 
   return delta_EL;
 }
@@ -292,6 +311,8 @@ eprop_iaf_adapt::pre_run_hook()
   V_.RefractoryCounts_ = Time( Time::ms( P_.t_ref_ ) ).get_steps();
 
   compute_surrogate_gradient = select_surrogate_gradient( P_.surrogate_gradient_function_ );
+  update_pre_syn_buffer = P_.delay_total_ == 1? &EpropArchivingNodeRecurrent::update_pre_syn_buffer_one_entry 
+                                            : &EpropArchivingNodeRecurrent::update_pre_syn_buffer_multiple_entries;
 
   // calculate the entries of the propagator matrix for the evolution of the state vector
 
@@ -301,6 +322,11 @@ eprop_iaf_adapt::pre_run_hook()
   V_.P_i_in_ = P_.tau_m_ / P_.C_m_ * ( 1.0 - V_.P_v_m_ );
   V_.P_z_in_ = P_.regular_spike_arrival_ ? 1.0 : 1.0 - V_.P_v_m_;
   V_.P_adapt_ = std::exp( -dt / P_.adapt_tau_ );
+
+  for ( long t = -P_.delay_total_; t < 0; ++t )
+  {
+    emplace_new_eprop_history_entry( t );
+  }
 }
 
 long
@@ -422,6 +448,7 @@ eprop_iaf_adapt::compute_gradient( const long t_spike,
   double& e_bar,
   double& epsilon,
   double& weight,
+  std::queue< double >& pre_syn_buffer,    
   const CommonSynapseProperties& cp,
   WeightOptimizer* optimizer )
 {
@@ -434,15 +461,13 @@ eprop_iaf_adapt::compute_gradient( const long t_spike,
 
   const EpropSynapseCommonProperties& ecp = static_cast< const EpropSynapseCommonProperties& >( cp );
 
-  auto eprop_hist_it = get_eprop_history( t_spike_previous - 1 );
+  auto eprop_hist_it = get_eprop_history( t_spike_previous - P_.delay_total_ );
 
   const long t_compute_until = std::min( t_spike_previous + P_.eprop_isi_trace_cutoff_, t_spike );
 
   for ( long t = t_spike_previous; t < t_compute_until; ++t, ++eprop_hist_it )
   {
-    z = z_previous_buffer;
-    z_previous_buffer = z_current_buffer;
-    z_current_buffer = 0.0;
+    ( this->*update_pre_syn_buffer )(z, z_current_buffer, z_previous_buffer, pre_syn_buffer, t_spike, t);  
 
     psi = eprop_hist_it->surrogate_gradient_;
     L = eprop_hist_it->learning_signal_;

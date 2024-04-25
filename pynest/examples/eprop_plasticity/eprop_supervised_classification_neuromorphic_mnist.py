@@ -120,10 +120,13 @@ np.random.seed(rng_seed)  # fix numpy random seed
 # individual data points presented one at a time, the `evaluation_group_size` specifies the number of instances
 # over which the network's output is collectively assessed to compute the mean accuracy and error.
 
-evaluation_group_size = 4  # number of instances used to calculate the mean accuracy and error
-n_iter = 4
+evaluation_group_size = 100  # number of instances used to calculate the mean accuracy and error
+n_iter = 1
 
-steps = {}
+steps = {
+    "delay_rec_out": 1,  # time steps of connection delay from recurrent to output neurons
+    "delay_out_rec": 1,  # time steps of broadcast delay of learning signals      
+}
 
 steps["sequence"] = 300  # time steps of one full sequence
 steps["learning_window"] = 10  # time steps of window with non-zero learning signals
@@ -194,6 +197,8 @@ params_nrn_out = {
     "regular_spike_arrival": False,
     "tau_m": 100.0,
     "V_m": 0.0,
+    "delay_out_rec": steps["delay_out_rec"],  # ms, broadcast delay of learning signals         
+    "delay_rec_out": steps["delay_rec_out"],  # ms, connection delay from recurrent to output neurons   
 }
 
 params_nrn_rec = {
@@ -212,6 +217,8 @@ params_nrn_rec = {
     "V_th": 0.5,  # mV, spike threshold membrane voltage
     "V_reset": -0.5,  # mV, reset membrane voltage
     "kappa": 0.99,  # low-pass filter of the eligibility trace
+    "delay_out_rec": steps["delay_out_rec"],  # ms, broadcast delay of learning signals        
+    "delay_rec_out": steps["delay_rec_out"],  # ms, connection delay from recurrent to output neurons
 }
 
 if model_nrn_rec == "eprop_iaf":
@@ -336,11 +343,12 @@ params_syn_base = {
 params_syn_in = params_syn_base.copy()
 params_syn_rec = params_syn_base.copy()
 params_syn_out = params_syn_base.copy()
+params_syn_out["delay"] = steps["delay_rec_out"] * duration["step"]
 
 
 params_syn_feedback = {
     "synapse_model": "eprop_learning_signal_connection",
-    "delay": duration["step"],
+    "delay": steps["delay_out_rec"] * duration["step"],
     "weight": weights_out_rec,
 }
 
@@ -544,7 +552,8 @@ class DataLoader:
 
 
 dataset_url = "https://prod-dcd-datasets-cache-zipfiles.s3.eu-west-1.amazonaws.com/468j46mzdv-1.zip"
-path = download_and_extract_dataset(dataset_url)
+# path = download_and_extract_dataset(dataset_url)
+path = "/home/jesus/Documents/Work/Projects/Eprop/bio-eprop/N-MNIST/FullDataSet/468j46mzdv-1"
 
 train_path = os.path.join(path, "Train/")
 test_path = os.path.join(path, "Test/")
@@ -694,6 +703,7 @@ for iteration in np.arange(n_iter):
     accuracy = np.mean((y_target == y_prediction), axis=0)
 
     print(f"    iter: {iteration} loss: {losses:0.5f} acc: {accuracy:0.5f}")
+exit()
 
 # %% ###########################################################################################################
 # Read out post-training weights
