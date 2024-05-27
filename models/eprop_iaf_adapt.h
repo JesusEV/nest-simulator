@@ -367,9 +367,22 @@ private:
     const CommonSynapseProperties&,
     WeightOptimizer* ) override;
 
+  void compute_gradient( const long t_spike,
+    const long t_spike_previous,
+    std::queue< double >& z_previous_buffer,
+    double& z_bar,
+    double& e_bar,
+    double& epsilon,
+    double& weight,
+    const CommonSynapseProperties& cp,
+    WeightOptimizer* optimizer ) override;
+
   long get_shift() const override;
   bool is_eprop_recurrent_node() const override;
   long get_eprop_isi_trace_cutoff() const override;
+  long get_delay_total() const override;
+  long get_delay_recurrent_to_readout() const override;
+  long get_delay_readout_to_recurrent() const override;
 
   //! Map for storing a static set of recordables.
   friend class RecordablesMap< eprop_iaf_adapt >;
@@ -431,6 +444,15 @@ private:
 
     //! Time interval from the previous spike until the cutoff of e-prop update integration between two spikes (ms).
     double eprop_isi_trace_cutoff_;
+
+    //! Connection delay from recurrent to output neurons.
+    long delay_rec_out_;
+
+    //! Broadcast delay of learning signals.
+    long delay_out_rec_;
+
+    //! Sum of broadcast delay of learning signals and connection delay from recurrent to output neurons.
+    long delay_total_;
 
     //! Default constructor.
     Parameters_();
@@ -589,6 +611,24 @@ inline long
 eprop_iaf_adapt::get_eprop_isi_trace_cutoff() const
 {
   return V_.eprop_isi_trace_cutoff_steps_;
+}
+
+inline long
+eprop_iaf_adapt::get_delay_total() const
+{
+  return P_.delay_total_;
+}
+
+inline long
+eprop_iaf_adapt::get_delay_recurrent_to_readout() const
+{
+  return P_.delay_rec_out_;
+}
+
+inline long
+eprop_iaf_adapt::get_delay_readout_to_recurrent() const
+{
+  return P_.delay_out_rec_;
 }
 
 inline size_t
