@@ -302,7 +302,17 @@ private:
 
   void compute_gradient( const long t_spike,
     const long t_spike_previous,
-    double& z_previous_buffer,
+    double& z_previous,
+    double& z_bar,
+    double& e_bar,
+    double& epsilon,
+    double& weight,
+    const CommonSynapseProperties& cp,
+    WeightOptimizer* optimizer ) override;
+
+  void compute_gradient( const long t_spike,
+    const long t_spike_previous,
+    std::queue< double >& z_previous_buffer,
     double& z_bar,
     double& e_bar,
     double& epsilon,
@@ -313,6 +323,7 @@ private:
   long get_shift() const override;
   bool is_eprop_recurrent_node() const override;
   long get_eprop_isi_trace_cutoff() override;
+  long get_delay_total() const override;
 
   //! Compute the error signal based on the mean-squared error loss.
   void compute_error_signal_mean_squared_error( const long lag );
@@ -350,6 +361,12 @@ private:
     //! Number of time steps integrated between two consecutive spikes is equal to the minimum between
     //! eprop_isi_trace_cutoff_ and the inter-spike distance.
     long eprop_isi_trace_cutoff_;
+
+    //! Connection delay from recurrent to output neurons.
+    long delay_rec_out_;
+
+    //! Broadcast delay of learning signals.
+    long delay_out_rec_;
 
     //! Default constructor.
     Parameters_();
@@ -393,6 +410,9 @@ private:
 
     //! Set the state variables.
     void set( const DictionaryDatum&, const Parameters_&, double, Node* );
+
+    //! Queue to hold last delay_out_rec error signals.
+    std::deque< double > error_signal_deque_;
   };
 
   //! Structure of buffers.
@@ -490,6 +510,12 @@ inline long
 eprop_readout::get_eprop_isi_trace_cutoff()
 {
   return P_.eprop_isi_trace_cutoff_;
+}
+
+inline long
+eprop_readout::get_delay_total() const
+{
+  return P_.delay_rec_out_;
 }
 
 inline size_t
