@@ -87,6 +87,9 @@ eprop_iaf_adapt::Parameters_::Parameters_()
   , V_th_( -55.0 - E_L_ )
   , kappa_( 0.97 )
   , eprop_isi_trace_cutoff_( std::numeric_limits< long >::max() )
+  , delay_rec_out_( 1 )
+  , delay_out_rec_( 1 )
+  , delay_total_( 1 )
 {
 }
 
@@ -137,6 +140,8 @@ eprop_iaf_adapt::Parameters_::get( DictionaryDatum& d ) const
   def< double >( d, names::V_th, V_th_ + E_L_ );
   def< double >( d, names::kappa, kappa_ );
   def< long >( d, names::eprop_isi_trace_cutoff, eprop_isi_trace_cutoff_ );
+  def< long >( d, names::delay_rec_out, delay_rec_out_ );
+  def< long >( d, names::delay_out_rec, delay_out_rec_ );
 }
 
 double
@@ -169,6 +174,8 @@ eprop_iaf_adapt::Parameters_::set( const DictionaryDatum& d, Node* node )
   updateValueParam< double >( d, names::tau_m, tau_m_, node );
   updateValueParam< double >( d, names::kappa, kappa_, node );
   updateValueParam< long >( d, names::eprop_isi_trace_cutoff, eprop_isi_trace_cutoff_, node );
+  updateValueParam< long >( d, names::delay_rec_out, delay_rec_out_, node );
+  updateValueParam< long >( d, names::delay_out_rec, delay_out_rec_, node );
 
   if ( adapt_beta_ < 0 )
   {
@@ -219,6 +226,18 @@ eprop_iaf_adapt::Parameters_::set( const DictionaryDatum& d, Node* node )
   {
     throw BadProperty( "Cutoff of integration of eprop trace between spikes eprop_isi_trace_cutoff ≥ 0 required." );
   }
+
+  if ( delay_rec_out_ < 1 )
+  {
+    throw BadProperty( "Connection delay from recurrent to output neuron ≥ 1 required." );
+  }
+
+  if ( delay_out_rec_ < 1 )
+  {
+    throw BadProperty( "Broadcast delay of learning signals ≥ 1 required." );
+  }
+
+  delay_total_ = delay_rec_out_ + ( delay_out_rec_ - 1 );
 
   return delta_EL;
 }
@@ -301,6 +320,14 @@ eprop_iaf_adapt::pre_run_hook()
   V_.P_i_in_ = P_.tau_m_ / P_.C_m_ * ( 1.0 - V_.P_v_m_ );
   V_.P_z_in_ = P_.regular_spike_arrival_ ? 1.0 : 1.0 - V_.P_v_m_;
   V_.P_adapt_ = std::exp( -dt / P_.adapt_tau_ );
+
+  if ( eprop_history_.empty() )
+  {
+    for ( long t = -P_.delay_total_; t < 0; ++t )
+    {
+      emplace_new_eprop_history_entry( t );
+    }
+  }
 }
 
 long
@@ -417,7 +444,7 @@ eprop_iaf_adapt::handle( DataLoggingRequest& e )
 void
 eprop_iaf_adapt::compute_gradient( const long t_spike,
   const long t_spike_previous,
-  double& z_previous_buffer,
+  double& z_previous,
   double& z_bar,
   double& e_bar,
   double& epsilon,
@@ -425,12 +452,12 @@ eprop_iaf_adapt::compute_gradient( const long t_spike,
   const CommonSynapseProperties& cp,
   WeightOptimizer* optimizer )
 {
-  double e = 0.0;                // eligibility trace
-  double z = 0.0;                // spiking variable
-  double z_current_buffer = 1.0; // buffer containing the spike that triggered the current integration
-  double psi = 0.0;              // surrogate gradient
-  double L = 0.0;                // learning signal
-  double grad = 0.0;             // gradient
+  double e = 0.0;         // eligibility trace
+  double z = 0.0;         // spiking variable
+  double z_current = 1.0; // buffer containing the spike that triggered the current integration
+  double psi = 0.0;       // surrogate gradient
+  double L = 0.0;         // learning signal
+  double grad = 0.0;      // gradient
 
   const EpropSynapseCommonProperties& ecp = static_cast< const EpropSynapseCommonProperties& >( cp );
   const auto optimize_each_step = ( *ecp.optimizer_cp_ ).optimize_each_step_;
@@ -441,9 +468,71 @@ eprop_iaf_adapt::compute_gradient( const long t_spike,
 
   for ( long t = t_spike_previous; t < t_compute_until; ++t, ++eprop_hist_it )
   {
-    z = z_previous_buffer;
-    z_previous_buffer = z_current_buffer;
-    z_current_buffer = 0.0;
+    z = z_previous;
+    z_previous = z_current;
+    z_current = 0.0;
+
+    psi = eprop_hist_it->surrogate_gradient_;
+    L = eprop_hist_it->learning_signal_;
+
+    z_bar = V_.P_v_m_ * z_bar + V_.P_z_in_ * z;
+    e = psi * ( z_bar - P_.adapt_beta_ * epsilon );
+    epsilon = V_.P_adapt_ * epsilon + e;
+    e_bar = P_.kappa_ * e_bar + ( 1.0 - P_.kappa_ ) * e;
+    grad = L * e_bar;
+
+    weight = optimizer->optimized_weight( *ecp.optimizer_cp_, t, grad, weight );
+  }
+
+  const int power = t_spike - ( t_spike_previous + P_.eprop_isi_trace_cutoff_ );
+
+  if ( power > 0 )
+  {
+    z_bar *= std::pow( V_.P_v_m_, power );
+    e_bar *= std::pow( P_.kappa_, power );
+    epsilon *= std::pow( V_.P_adapt_, power );
+  }
+}
+
+void
+eprop_iaf_adapt::compute_gradient( const long t_spike,
+  const long t_spike_previous,
+  std::queue< double >& z_previous_buffer,
+  double& z_bar,
+  double& e_bar,
+  double& epsilon,
+  double& weight,
+  const CommonSynapseProperties& cp,
+  WeightOptimizer* optimizer )
+{
+  double e = 0.0;    // eligibility trace
+  double z = 0.0;    // spiking variable
+  double psi = 0.0;  // surrogate gradient
+  double L = 0.0;    // learning signal
+  double grad = 0.0; // gradient
+
+  const EpropSynapseCommonProperties& ecp = static_cast< const EpropSynapseCommonProperties& >( cp );
+
+  auto eprop_hist_it = get_eprop_history( t_spike_previous - P_.delay_total_ );
+
+  const long t_compute_until = std::min( t_spike_previous + P_.eprop_isi_trace_cutoff_, t_spike );
+
+  for ( long t = t_spike_previous; t < t_compute_until; ++t, ++eprop_hist_it )
+  {
+    if ( !z_previous_buffer.empty() )
+    {
+      z = z_previous_buffer.front();
+      z_previous_buffer.pop();
+    }
+
+    if ( t_spike - t > 1 )
+    {
+      z_previous_buffer.push( 0.0 );
+    }
+    else
+    {
+      z_previous_buffer.push( 1.0 );
+    }
 
     psi = eprop_hist_it->surrogate_gradient_;
     L = eprop_hist_it->learning_signal_;

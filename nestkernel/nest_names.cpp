@@ -127,6 +127,8 @@ const Name dead_time( "dead_time" );
 const Name dead_time_random( "dead_time_random" );
 const Name dead_time_shape( "dead_time_shape" );
 const Name delay( "delay" );
+const Name delay_out_rec( "delay_out_rec" );
+const Name delay_rec_out( "delay_rec_out" );
 const Name delay_u_bars( "delay_u_bars" );
 const Name deliver_interval( "deliver_interval" );
 const Name delta( "delta" );

@@ -54,7 +54,7 @@ EpropArchivingNode< HistEntryT >::register_eprop_connection( const bool is_bsshs
 {
   ++eprop_indegree_;
 
-  const long t_first_entry = is_bsshslm_2020_model ? get_shift() : -delay_rec_out_;
+  const long t_first_entry = is_bsshslm_2020_model ? get_shift() : -get_delay_total();
 
   const auto it_hist = get_update_history( t_first_entry );
 
@@ -80,7 +80,7 @@ EpropArchivingNode< HistEntryT >::write_update_to_history( const long t_previous
     return;
   }
 
-  const long shift = is_bsshslm_2020_model ? get_shift() : -delay_rec_out_;
+  const long shift = is_bsshslm_2020_model ? get_shift() : -get_delay_total();
 
   const auto it_hist_curr = get_update_history( t_current_update + shift );
 

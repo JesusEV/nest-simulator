@@ -26,6 +26,7 @@
 // C++ includes:
 #include <bitset>
 #include <deque>
+#include <queue>
 #include <sstream>
 #include <string>
 #include <utility>
@@ -522,6 +523,30 @@ public:
   virtual long get_eprop_isi_trace_cutoff();
 
   /**
+   * Get sum of broadcast delay of learning signals and connection delay from recurrent to output neurons.
+   *
+   * @throws IllegalConnection
+   */
+
+  virtual long get_delay_total() const;
+
+  /**
+   * Get connection delay from recurrent to output neurons.
+   *
+   * @throws IllegalConnection
+   */
+
+  virtual long get_delay_recurrent_to_readout() const;
+
+  /**
+   * Get connection delay of learning signals and connection delay from recurrent to output neurons.
+   *
+   * @throws IllegalConnection
+   */
+
+  virtual long get_delay_readout_to_recurrent() const;
+
+  /**
    * Return if the node is part of the recurrent network (and thus not a readout neuron).
    *
    * @note The e-prop synapse calls this function of the target node. If true,
@@ -823,7 +848,24 @@ public:
    */
   virtual void compute_gradient( const long t_spike,
     const long t_spike_previous,
-    double& z_previous_buffer,
+    double& z_previous,
+    double& z_bar,
+    double& e_bar,
+    double& epsilon,
+    double& weight,
+    const CommonSynapseProperties& cp,
+    WeightOptimizer* optimizer );
+
+  /**
+   * Compute gradient change for eprop synapses.
+   *
+   * This method is called from an eprop synapse on the eprop target neuron and returns the change in gradient.
+   *
+   * @params presyn_isis  is cleared during call
+   */
+  virtual void compute_gradient( const long t_spike,
+    const long t_spike_previous,
+    std::queue< double >& z_previous_buffer,
     double& z_bar,
     double& e_bar,
     double& epsilon,

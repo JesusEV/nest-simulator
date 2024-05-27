@@ -151,11 +151,15 @@ EpropArchivingNodeRecurrent::write_learning_signal_to_history( const long time_s
     return;
   }
 
-  long shift = delay_rec_out_ + delay_out_rec_;
+  long shift = delay_out_rec_;
 
   if ( has_norm_step )
   {
-    shift += delay_out_norm_;
+    shift += delay_rec_out_ + delay_out_norm_;
+  }
+  else
+  {
+    shift += get_delay_total();
   }
 
 
