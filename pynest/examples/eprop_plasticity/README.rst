@@ -21,6 +21,13 @@ Users interested in endowing an existing model with e-prop plasticity, may compa
 Parameters to run the `eprop_iaf_psc_delta` model are provided in
 :doc:`eprop_supervised_regression_sine-waves.py <eprop_supervised_regression_sine-waves>`.
 
+.. grid::
+
+  .. grid-item-card::
+    :columns: 12
+
+    .. image:: /static/img/eprop_model_diagram.svg
+
 References
 ----------
 
