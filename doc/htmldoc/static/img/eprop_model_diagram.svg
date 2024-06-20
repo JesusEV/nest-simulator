@@ -507,7 +507,7 @@
          direction="ltr"
          dominant-baseline="alphabetic"
          id="text1"><tspan
-           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-family:'Courier New';-inkscape-font-specification:'Courier New'"
+           style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-family:'Courier New';-inkscape-font-specification:'Courier New Bold'"
            id="tspan32">eprop_iaf</tspan></text></g><g
        stroke-linecap="round"
        transform="matrix(0.11348448,0,0,0.11348448,619.76423,135.45622)"
@@ -529,7 +529,7 @@
          direction="ltr"
          dominant-baseline="alphabetic"
          id="text2"><tspan
-           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-family:'Courier New';-inkscape-font-specification:'Courier New'"
+           style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-family:'Courier New';-inkscape-font-specification:'Courier New Bold'"
            id="tspan36">iaf_psc_delta</tspan></text></g><g
        stroke-linecap="round"
        transform="matrix(0.11348448,0,0,0.11348448,698.56958,100.14467)"
@@ -551,7 +551,7 @@
          direction="ltr"
          dominant-baseline="alphabetic"
          id="text4"><tspan
-           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-family:'Courier New';-inkscape-font-specification:'Courier New';letter-spacing:-0.512919px"
+           style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-family:'Courier New';-inkscape-font-specification:'Courier New Bold';letter-spacing:-0.512919px"
            id="tspan31">eprop_iaf_psc_delta</tspan></text></g><g
        stroke-linecap="round"
        transform="matrix(0.11348448,0,0,0.11348448,619.30067,101.27044)"
@@ -573,7 +573,7 @@
          direction="ltr"
          dominant-baseline="alphabetic"
          id="text6"><tspan
-           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-family:'Courier New';-inkscape-font-specification:'Courier New';letter-spacing:-0.186516px"
+           style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-family:'Courier New';-inkscape-font-specification:'Courier New Bold';letter-spacing:-0.186516px"
            id="tspan33">eprop_iaf_adapt</tspan></text></g><g
        stroke-linecap="round"
        transform="matrix(0.11348448,0,0,0.11348448,619.30067,165.29444)"
@@ -595,7 +595,7 @@
          direction="ltr"
          dominant-baseline="alphabetic"
          id="text8"><tspan
-           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-family:'Courier New';-inkscape-font-specification:'Courier New';letter-spacing:-0.256459px"
+           style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-family:'Courier New';-inkscape-font-specification:'Courier New Bold';letter-spacing:-0.256459px"
            id="tspan30">eprop_iaf_adapt_bsshslm_2020</tspan></text></g><g
        stroke-linecap="round"
        transform="matrix(0.11348448,0,0,0.11348448,498.5087,164.27353)"
@@ -617,7 +617,7 @@
          direction="ltr"
          dominant-baseline="alphabetic"
          id="text10"><tspan
-           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-family:'Courier New';-inkscape-font-specification:'Courier New'"
+           style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-family:'Courier New';-inkscape-font-specification:'Courier New Bold'"
            id="tspan29">eprop_iaf_bsshslm_2020</tspan></text></g><g
        stroke-linecap="round"
        transform="matrix(0.11348448,0,0,0.11348448,509.85715,135.22464)"
@@ -1121,7 +1121,7 @@
          direction="ltr"
          dominant-baseline="alphabetic"
          id="text56"><tspan
-           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-family:'Courier New';-inkscape-font-specification:'Courier New';letter-spacing:-0.20983px"
+           style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-family:'Courier New';-inkscape-font-specification:'Courier New Bold';letter-spacing:-0.20983px"
            id="tspan39">eprop_readout_bsshslm_2020</tspan></text></g><g
        stroke-linecap="round"
        transform="matrix(0.11348448,0,0,0.11348448,502.16013,180.95321)"
@@ -1143,7 +1143,7 @@
          direction="ltr"
          dominant-baseline="alphabetic"
          id="text57"><tspan
-           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-family:'Courier New';-inkscape-font-specification:'Courier New';letter-spacing:-0.279774px"
+           style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-family:'Courier New';-inkscape-font-specification:'Courier New Bold';letter-spacing:-0.279774px"
            id="tspan34">eprop_readout</tspan></text></g><g
        stroke-linecap="round"
        transform="matrix(0.11348448,0,0,0.11348448,619.76423,180.75773)"
@@ -1242,7 +1242,7 @@
          direction="ltr"
          dominant-baseline="alphabetic"
          id="text67"><tspan
-           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-family:'Courier New';-inkscape-font-specification:'Courier New';letter-spacing:-0.512919px"
+           style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-family:'Courier New';-inkscape-font-specification:'Courier New Bold';letter-spacing:-0.512919px"
            id="tspan38">eprop_learning_signal_connection_bsshslm_2020</tspan></text></g><g
        stroke-linecap="round"
        transform="matrix(0.11348448,0,0,0.11348448,456.76634,214.96528)"
@@ -1264,7 +1264,7 @@
          direction="ltr"
          dominant-baseline="alphabetic"
          id="text68"><tspan
-           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-family:'Courier New';-inkscape-font-specification:'Courier New';letter-spacing:-0.326403px"
+           style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-family:'Courier New';-inkscape-font-specification:'Courier New Bold';letter-spacing:-0.326403px"
            id="tspan40">eprop_synapse_bsshslm_2020</tspan></text></g><g
        stroke-linecap="round"
        transform="matrix(0.11348448,0,0,0.11348448,502.16013,197.39841)"
@@ -1319,7 +1319,7 @@
          direction="ltr"
          dominant-baseline="alphabetic"
          id="text76"><tspan
-           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-family:'Courier New';-inkscape-font-specification:'Courier New';letter-spacing:-0.139887px"
+           style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-family:'Courier New';-inkscape-font-specification:'Courier New Bold';letter-spacing:-0.139887px"
            id="tspan35">eprop_synapse</tspan></text></g><g
        stroke-linecap="round"
        transform="matrix(0.11348448,0,0,0.11348448,619.83469,197.60924)"
@@ -1329,7 +1329,7 @@
          stroke-width="2"
          fill="none"
          id="path77" /></g><g
-       transform="matrix(0.11348448,0,0,0.11348448,620.71252,216.68729)"
+       transform="matrix(0.11348448,0,0,0.11348448,620.71252,215.62898)"
        id="g79"><text
          x="0"
          y="35.440941"
@@ -1341,7 +1341,7 @@
          direction="ltr"
          dominant-baseline="alphabetic"
          id="text78"><tspan
-           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-family:'Courier New';-inkscape-font-specification:'Courier New';letter-spacing:-0.20983px"
+           style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-family:'Courier New';-inkscape-font-specification:'Courier New Bold';letter-spacing:-0.20983px"
            id="tspan37">eprop_learning_signal_connection</tspan></text></g><g
        stroke-linecap="round"
        transform="matrix(0.11348448,0,0,0.11348448,619.76423,214.87439)"

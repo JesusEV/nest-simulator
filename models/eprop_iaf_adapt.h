@@ -178,13 +178,6 @@ For more information on e-prop plasticity, see the documentation on the other e-
  * :doc:`eprop_synapse<../models/eprop_synapse/>`
  * :doc:`eprop_learning_signal_connection<../models/eprop_learning_signal_connection/>`
 
-.. grid::
-
-  .. grid-item-card::
-    :columns: 12
-
-    .. image:: /static/img/eprop_model_diagram.svg
-
 Details on the event-based NEST implementation of e-prop can be found in [2]_.
 
 Parameters
