@@ -570,6 +570,13 @@ inline size_t
 eprop_iaf::send_test_event( Node& target, size_t receptor_type, synindex, bool )
 {
   SpikeEvent e;
+
+  // To perform a consistency check on the delay parameter d_out_rec between recurrent
+  // neurons and output neurons, the recurrent neurons send a test event with a delay
+  // specified by d_rec_out. Upon receiving the test event from the recurrent neuron,
+  // the output neuron checks if the delay with which the event was received matches
+  // its own specified delay parameter d_rec_out.
+  e.set_delay_steps( P_.delay_rec_out_ );
   e.set_sender( *this );
   return target.handles_test_event( e, receptor_type );
 }

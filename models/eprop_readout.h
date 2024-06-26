@@ -519,13 +519,28 @@ eprop_readout::get_delay_total() const
 }
 
 inline size_t
-eprop_readout::handles_test_event( SpikeEvent&, size_t receptor_type )
+eprop_readout::handles_test_event( SpikeEvent& e, size_t receptor_type )
 {
   if ( receptor_type != 0 )
   {
     throw UnknownReceptorType( receptor_type, get_name() );
   }
 
+  // To perform a consistency check on the delay parameter d_out_rec between recurrent
+  // neurons and output neurons, the recurrent neurons send a test event with a delay
+  // specified by d_rec_out. Upon receiving the test event from the recurrent neuron,
+  // the output neuron checks if the delay with which the event was received matches
+  // its own specified delay parameter d_rec_out.
+
+  // ensure that the spike event was not sent by a proxy node.
+  if ( e.get_sender().get_node_id() != 0 )
+  {
+    if ( e.get_delay_steps() != P_.delay_rec_out_ )
+    {
+      throw IllegalConnection(
+        "delay_rec_out from recurrent neuron equal to delay_rec_out from readout neuron required." );
+    }
+  }
   return 0;
 }
 
