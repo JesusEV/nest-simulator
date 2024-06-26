@@ -182,8 +182,8 @@ params_nrn_out = {
     "regular_spike_arrival": False,  # If True, input spikes arrive at end of time step, if False at beginning
     "tau_m": 30.0,  # ms, membrane time constant
     "V_m": 0.0,  # mV, initial value of the membrane voltage
-    "delay_out_rec": steps["delay_out_rec"],  # ms, broadcast delay of learning signals
-    "delay_rec_out": steps["delay_rec_out"],  # ms, connection delay from recurrent to output neurons
+    "delay_out_rec": duration["delay_out_rec"],  # ms, broadcast delay of learning signals
+    "delay_rec_out": duration["delay_rec_out"],  # ms, connection delay from recurrent to output neurons
 }
 
 params_nrn_rec = {
@@ -202,8 +202,8 @@ params_nrn_rec = {
     "V_m": 0.0,
     "V_th": 0.03,  # mV, spike threshold membrane voltage
     "kappa": 0.97,  # low-pass filter of the eligibility trace
-    "delay_out_rec": steps["delay_out_rec"],  # ms, broadcast delay of learning signals
-    "delay_rec_out": steps["delay_rec_out"],  # ms, connection delay from recurrent to output neurons
+    "delay_out_rec": duration["delay_out_rec"],  # ms, broadcast delay of learning signals
+    "delay_rec_out": duration["delay_rec_out"],  # ms, connection delay from recurrent to output neurons
 }
 
 if model_nrn_rec == "eprop_iaf_psc_delta":
@@ -333,7 +333,7 @@ params_syn_out["delay"] = duration["delay_rec_out"]
 
 params_syn_feedback = {
     "synapse_model": "eprop_learning_signal_connection",
-    "delay": steps["delay_out_rec"] * duration["step"],
+    "delay": duration["delay_out_rec"],
     "weight": weights_out_rec,
 }
 
