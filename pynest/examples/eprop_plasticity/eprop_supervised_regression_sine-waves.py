@@ -151,7 +151,7 @@ duration.update({key: value * duration["step"] for key, value in steps.items()})
 # objects and set some NEST kernel parameters.
 
 params_setup = {
-    "print_time": True,  # if True, print time progress bar during simulation, set False if run as code cell
+    "print_time": False,  # if True, print time progress bar during simulation, set False if run as code cell
     "resolution": duration["step"],
     "total_num_virtual_procs": 4,  # number of virtual processes, set in case of distributed computing
 }
