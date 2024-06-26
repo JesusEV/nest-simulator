@@ -135,7 +135,7 @@ steps = {
     "sequence": 300,  # time steps of one full sequence
     "learning_window": 10,  # time steps of window with non-zero learning signals
     "delay_rec_out": 1,  # time steps of connection delay from recurrent to output neurons
-    "delay_out_rec": 1,  # time steps of broadcast delay of learning signals      
+    "delay_out_rec": 1,  # time steps of broadcast delay of learning signals
 }
 
 steps.update(
@@ -209,8 +209,8 @@ params_nrn_out = {
     "I_e": 0.0,  # pA, external current input
     "tau_m": 100.0,  # ms, membrane time constant
     "V_m": 0.0,  # mV, initial value of the membrane voltage
-    "delay_out_rec": steps["delay_out_rec"],  # ms, broadcast delay of learning signals         
-    "delay_rec_out": steps["delay_rec_out"],  # ms, connection delay from recurrent to output neurons       
+    "delay_out_rec": steps["delay_out_rec"],  # ms, broadcast delay of learning signals
+    "delay_rec_out": steps["delay_rec_out"],  # ms, connection delay from recurrent to output neurons
 }
 
 params_nrn_rec = {
@@ -229,8 +229,8 @@ params_nrn_rec = {
     "tau_m": 30.0,
     "V_m": 0.0,
     "V_th": 0.6,  # mV, spike threshold membrane voltage
-    "delay_out_rec": steps["delay_out_rec"],  # ms, broadcast delay of learning signals         
-    "delay_rec_out": steps["delay_rec_out"],  # ms, connection delay from recurrent to output neurons       
+    "delay_out_rec": steps["delay_out_rec"],  # ms, broadcast delay of learning signals
+    "delay_rec_out": steps["delay_rec_out"],  # ms, connection delay from recurrent to output neurons
 }
 
 scale_factor = 1.0 - params_nrn_rec["kappa"]  # factor for rescaling due to removal of irregular spike arrival
@@ -819,9 +819,7 @@ events_wr = wr.get("events")
 
 
 loss, accuracy, recall_errors = evaluate(n_iter, 0)
-print(loss)
-print(accuracy)
-exit()
+
 # %% ###########################################################################################################
 # Plot results
 # ~~~~~~~~~~~~
