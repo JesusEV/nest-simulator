@@ -610,7 +610,7 @@ def get_params_task_input_output(n_iter_interval, loader):
     return params_gen_spk_in, params_gen_rate_target, params_gen_learning_window
 
 
-save_path = "/home/jesus/Downloads"  # path to save the N-MNIST dataset to
+save_path = "./"  # path to save the N-MNIST dataset to
 train_path, test_path = download_and_extract_nmnist_dataset(save_path)
 
 selected_labels = [label for label in range(n_out)]
