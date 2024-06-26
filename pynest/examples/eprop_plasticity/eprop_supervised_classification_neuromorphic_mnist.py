@@ -229,8 +229,8 @@ params_nrn_rec = {
     "tau_m": 30.0,
     "V_m": 0.0,
     "V_th": 0.6,  # mV, spike threshold membrane voltage
-    "delay_out_rec": steps["delay_out_rec"],  # ms, broadcast delay of learning signals
-    "delay_rec_out": steps["delay_rec_out"],  # ms, connection delay from recurrent to output neurons
+    "delay_out_rec": duration["delay_out_rec"],  # ms, broadcast delay of learning signals
+    "delay_rec_out": duration["delay_rec_out"],  # ms, connection delay from recurrent to output neurons
 }
 
 scale_factor = 1.0 - params_nrn_rec["kappa"]  # factor for rescaling due to removal of irregular spike arrival
