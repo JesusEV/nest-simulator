@@ -213,8 +213,8 @@ params_nrn_rec = {
     "V_m": 0.0,
     "V_th": 0.6,  # mV, spike threshold membrane voltage
     "kappa": 0.99,  # low-pass filter of the eligibility trace
-    "delay_out_rec": steps["delay_out_rec"],  # ms, broadcast delay of learning signals
-    "delay_rec_out": steps["delay_rec_out"],  # ms, connection delay from recurrent to output neurons
+    "delay_out_rec": duration["delay_out_rec"],  # ms, broadcast delay of learning signals
+    "delay_rec_out": duration["delay_rec_out"],  # ms, connection delay from recurrent to output neurons
 }
 
 ####################
