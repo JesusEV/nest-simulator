@@ -329,7 +329,7 @@ params_syn_rec["weight"] = weights_rec_rec
 
 params_syn_out = params_syn_base.copy()
 params_syn_out["weight"] = weights_rec_out
-params_syn_out["delay"] = steps["delay_rec_out"] * duration["step"]
+params_syn_out["delay"] = duration["delay_rec_out"]
 
 params_syn_feedback = {
     "synapse_model": "eprop_learning_signal_connection",
