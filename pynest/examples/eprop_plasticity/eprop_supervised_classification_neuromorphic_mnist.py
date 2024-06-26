@@ -125,7 +125,7 @@ test_every = 10  # cyclical number of training iterations after which to test th
 
 steps = {
     "delay_rec_out": 1,  # time steps of connection delay from recurrent to output neurons
-    "delay_out_rec": 1,  # time steps of broadcast delay of learning signals      
+    "delay_out_rec": 1,  # time steps of broadcast delay of learning signals
 }
 
 steps["sequence"] = 300  # time steps of one full sequence
@@ -193,8 +193,8 @@ params_nrn_out = {
     "regular_spike_arrival": False,  # If True, input spikes arrive at end of time step, if False at beginning
     "tau_m": 100.0,  # ms, membrane time constant
     "V_m": 0.0,  # mV, initial value of the membrane voltage
-    "delay_out_rec": steps["delay_out_rec"],  # ms, broadcast delay of learning signals         
-    "delay_rec_out": steps["delay_rec_out"],  # ms, connection delay from recurrent to output neurons       
+    "delay_out_rec": steps["delay_out_rec"],  # ms, broadcast delay of learning signals
+    "delay_rec_out": steps["delay_rec_out"],  # ms, connection delay from recurrent to output neurons
 }
 
 params_nrn_rec = {
@@ -213,8 +213,8 @@ params_nrn_rec = {
     "V_m": 0.0,
     "V_th": 0.6,  # mV, spike threshold membrane voltage
     "kappa": 0.99,  # low-pass filter of the eligibility trace
-    "delay_out_rec": steps["delay_out_rec"],  # ms, broadcast delay of learning signals         
-    "delay_rec_out": steps["delay_rec_out"],  # ms, connection delay from recurrent to output neurons       
+    "delay_out_rec": steps["delay_out_rec"],  # ms, broadcast delay of learning signals
+    "delay_rec_out": steps["delay_rec_out"],  # ms, connection delay from recurrent to output neurons
 }
 
 ####################
@@ -719,9 +719,7 @@ events_wr = wr.get("events")
 # the integrated recurrent network activity and the target rate.
 
 loss, accuracy, recall_errors = evaluate(n_iter, 0)
-print(loss)
-print(accuracy)
-exit()
+
 # %% ###########################################################################################################
 # Plot results
 # ~~~~~~~~~~~~
