@@ -140,10 +140,12 @@ eprop_iaf_adapt::Parameters_::get( DictionaryDatum& d ) const
   def< double >( d, names::V_min, V_min_ + E_L_ );
   def< double >( d, names::V_th, V_th_ + E_L_ );
   def< double >( d, names::kappa, kappa_ );
-  def< double >( d, names::kappa_reg, kappa_reg_ );
-  def< double >( d, names::eprop_isi_trace_cutoff, eprop_isi_trace_cutoff_ );
-  def< long >( d, names::delay_rec_out, delay_rec_out_ );
-  def< long >( d, names::delay_out_rec, delay_out_rec_ );
+  def< long >( d, names::eprop_isi_trace_cutoff, eprop_isi_trace_cutoff_ );
+
+  double delay_rec_out_ms = Time( Time::step( delay_rec_out_ ) ).get_ms();
+  def< double >( d, names::delay_rec_out, delay_rec_out_ms );
+  double delay_out_rec_ms = Time( Time::step( delay_out_rec_ ) ).get_ms();
+  def< double >( d, names::delay_out_rec, delay_out_rec_ms );
 }
 
 double
@@ -181,10 +183,15 @@ eprop_iaf_adapt::Parameters_::set( const DictionaryDatum& d, Node* node )
   updateValueParam< double >( d, names::t_ref, t_ref_, node );
   updateValueParam< double >( d, names::tau_m, tau_m_, node );
   updateValueParam< double >( d, names::kappa, kappa_, node );
-  updateValueParam< double >( d, names::kappa_reg, kappa_reg_, node );
-  updateValueParam< double >( d, names::eprop_isi_trace_cutoff, eprop_isi_trace_cutoff_, node );
-  updateValueParam< long >( d, names::delay_rec_out, delay_rec_out_, node );
-  updateValueParam< long >( d, names::delay_out_rec, delay_out_rec_, node );
+  updateValueParam< long >( d, names::eprop_isi_trace_cutoff, eprop_isi_trace_cutoff_, node );
+
+  double delay_rec_out_ms = Time( Time::step( delay_rec_out_ ) ).get_ms();
+  updateValueParam< double >( d, names::delay_rec_out, delay_rec_out_ms, node );
+  delay_rec_out_ = Time( Time::ms( delay_rec_out_ms ) ).get_steps();
+
+  double delay_out_rec_ms = Time( Time::step( delay_out_rec_ ) ).get_ms();
+  updateValueParam< double >( d, names::delay_out_rec, delay_out_rec_ms, node );
+  delay_out_rec_ = Time( Time::ms( delay_out_rec_ms ) ).get_steps();
 
   if ( adapt_beta_ < 0 )
   {
