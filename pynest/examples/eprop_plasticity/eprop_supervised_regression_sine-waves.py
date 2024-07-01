@@ -177,8 +177,7 @@ params_nrn_out = {
     "E_L": 0.0,  # mV, leak / resting membrane potential
     "eprop_isi_trace_cutoff": 100,  # cutoff of integration of eprop trace between spikes
     "I_e": 0.0,  # pA, external current input
-    "regular_spike_arrival": False,  # If True, input spikes arrive at end of time step, if False at beginning
-    "tau_m": 30.0,  # ms, membrane time constant
+    "tau_m": 20.0,  # ms, membrane time constant
     "V_m": 0.0,  # mV, initial value of the membrane voltage
 }
 
@@ -191,17 +190,15 @@ params_nrn_rec = {
     "f_target": 10.0,  # spikes/s, target firing rate for firing rate regularization
     "gamma": 0.3,  # height scaling of the pseudo-derivative
     "I_e": 0.0,
-    "regular_spike_arrival": False,
     "surrogate_gradient_function": "piecewise_linear",  # surrogate gradient / pseudo-derivative function
     "t_ref": 0.0,  # ms, duration of refractory period
-    "tau_m": 30.0,
+    "tau_m": 20.0,
     "V_m": 0.0,
-    "V_th": 0.03,  # mV, spike threshold membrane voltage
-    "kappa": 0.97,  # low-pass filter of the eligibility trace
+    "V_th": 0.6,  # mV, spike threshold membrane voltage
+    "kappa": 0.95,  # low-pass filter of the eligibility trace
 }
 
 if model_nrn_rec == "eprop_iaf_psc_delta":
-    del params_nrn_rec["regular_spike_arrival"]
     params_nrn_rec["V_reset"] = -0.5  # mV, reset membrane voltage
     params_nrn_rec["c_reg"] = 2.0 / duration["sequence"]
     params_nrn_rec["V_th"] = 0.5
