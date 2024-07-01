@@ -207,8 +207,14 @@ public:
   //! Size of an optimization batch.
   size_t batch_size_;
 
-  //! Learning rate.
+  //! Learning rate common to all synapses.
   double eta_;
+
+  //! First learning rate that differs from the default.
+  double eta_first_;
+
+  //! Number of changes to the learning rate.
+  long n_eta_change_;
 
   //! Minimal value for synaptic weight.
   double Wmin_;
@@ -252,7 +258,7 @@ public:
   virtual void set_status( const DictionaryDatum& d );
 
   //! Return optimized weight based on current weight.
-  double optimized_weight( const WeightOptimizerCommonProperties& cp,
+  double optimized_weight( WeightOptimizerCommonProperties& cp,
     const size_t idx_current_update,
     const double gradient,
     double weight );
@@ -266,6 +272,12 @@ protected:
 
   //! Current optimization step, whereby optimization happens every batch_size_ steps.
   size_t optimization_step_;
+
+  //! Learning rate private to the synapse.
+  double eta_;
+
+  //! Number of optimizations.
+  long n_optimize_;
 };
 
 /**
