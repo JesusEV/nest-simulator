@@ -20,8 +20,8 @@
 # along with NEST.  If not, see <http://www.gnu.org/licenses/>.
 
 r"""
-Tutorial on learning to accumulate evidence with e-prop (_bsshslm_2020)
------------------------------------------------------------------------
+Tutorial on learning to accumulate evidence with e-prop after Bellec et al. (2020)
+----------------------------------------------------------------------------------
 
 Training a classification model using supervised e-prop plasticity to accumulate evidence.
 
@@ -40,9 +40,9 @@ taking a left and a right turn of which one is correct. After a number of iterat
 infer the underlying rationale of the task. Here, the solution is to turn to the side in which more cues were
 presented.
 
-.. image:: ../../../../pynest/examples/eprop_plasticity/eprop_supervised_classification_schematic_evidence-accumulation.png
+.. image:: ../../../../pynest/examples/eprop_plasticity/eprop_supervised_classification_schematic_evidence-accumulation_bsshslm_2020.png
    :width: 70 %
-   :alt: See Figure 1 below.
+   :alt: Schematic of network architecture. Same as Figure 1 in the code.
    :align: center
 
 Learning in the neural network model is achieved by optimizing the connection weights with e-prop plasticity.
@@ -114,10 +114,11 @@ np.random.seed(rng_seed)  # fix numpy random seed
 # .....................
 # The task's temporal structure is then defined, once as time steps and once as durations in milliseconds.
 # Using a batch size larger than one aids the network in generalization, facilitating the solution to this task.
-# The original number of iterations requires distributed computing.
+# The original number of iterations requires distributed computing. Increasing the number of iterations
+# enhances learning performance up to the point where overfitting occurs.
 
-batch_size = 1  # batch size, 64 in reference [2], 32 in the README to reference [2]
-n_iter = 5  # number of iterations, 2000 in reference [2], 50 with batch_size 32 converges
+batch_size = 32  # batch size, 64 in reference [2], 32 in the README to reference [2]
+n_iter = 50  # number of iterations, 2000 in reference [2]
 
 n_input_symbols = 4  # number of input populations, e.g. 4 = left, right, recall, noise
 n_cues = 7  # number of cues given before decision
@@ -266,7 +267,7 @@ nrns_rec = nrns_reg + nrns_ad
 # default, recordings are stored in memory but can also be written to file.
 
 n_record = 1  # number of neurons per type to record dynamic variables from - this script requires n_record >= 1
-n_record_w = 3  # number of senders and targets to record weights from - this script requires n_record_w >=1
+n_record_w = 5  # number of senders and targets to record weights from - this script requires n_record_w >=1
 
 if n_record == 0 or n_record_w == 0:
     raise ValueError("n_record and n_record_w >= 1 required")
@@ -276,6 +277,7 @@ params_mm_reg = {
     "record_from": ["V_m", "surrogate_gradient", "learning_signal"],  # dynamic variables to record
     "start": duration["offset_gen"] + duration["delay_in_rec"],  # start time of recording
     "stop": duration["offset_gen"] + duration["delay_in_rec"] + duration["task"],  # stop time of recording
+    "label": "multimeter_reg",
 }
 
 params_mm_ad = {
@@ -283,6 +285,7 @@ params_mm_ad = {
     "record_from": params_mm_reg["record_from"] + ["V_th_adapt", "adaptation"],
     "start": duration["offset_gen"] + duration["delay_in_rec"],
     "stop": duration["offset_gen"] + duration["delay_in_rec"] + duration["task"],
+    "label": "multimeter_ad",
 }
 
 params_mm_out = {
@@ -290,6 +293,7 @@ params_mm_out = {
     "record_from": ["V_m", "readout_signal", "readout_signal_unnorm", "target_signal", "error_signal"],
     "start": duration["total_offset"],
     "stop": duration["total_offset"] + duration["task"],
+    "label": "multimeter_out",
 }
 
 params_wr = {
@@ -297,11 +301,25 @@ params_wr = {
     "targets": nrns_rec[:n_record_w] + nrns_out,  # limit targets to subsample weights to record from
     "start": duration["total_offset"],
     "stop": duration["total_offset"] + duration["task"],
+    "label": "weight_recorder",
 }
 
-params_sr = {
+params_sr_in = {
     "start": duration["offset_gen"],
     "stop": duration["total_offset"] + duration["task"],
+    "label": "spike_recorder_in",
+}
+
+params_sr_reg = {
+    "start": duration["offset_gen"],
+    "stop": duration["total_offset"] + duration["task"],
+    "label": "spike_recorder_reg",
+}
+
+params_sr_ad = {
+    "start": duration["offset_gen"],
+    "stop": duration["total_offset"] + duration["task"],
+    "label": "spike_recorder_ad",
 }
 
 ####################
@@ -309,7 +327,9 @@ params_sr = {
 mm_reg = nest.Create("multimeter", params_mm_reg)
 mm_ad = nest.Create("multimeter", params_mm_ad)
 mm_out = nest.Create("multimeter", params_mm_out)
-sr = nest.Create("spike_recorder", params_sr)
+sr_in = nest.Create("spike_recorder", params_sr_in)
+sr_reg = nest.Create("spike_recorder", params_sr_reg)
+sr_ad = nest.Create("spike_recorder", params_sr_ad)
 wr = nest.Create("weight_recorder", params_wr)
 
 nrns_reg_record = nrns_reg[:n_record]
@@ -413,7 +433,9 @@ nest.Connect(nrns_out, nrns_rec, params_conn_all_to_all, params_syn_feedback)  #
 nest.Connect(gen_rate_target, nrns_out, params_conn_one_to_one, params_syn_rate_target)  # connection 6
 nest.Connect(nrns_out, nrns_out, params_conn_all_to_all, params_syn_out_out)  # connection 7
 
-nest.Connect(nrns_in + nrns_rec, sr, params_conn_all_to_all, params_syn_static)
+nest.Connect(nrns_in, sr_in, params_conn_all_to_all, params_syn_static)
+nest.Connect(nrns_reg, sr_reg, params_conn_all_to_all, params_syn_static)
+nest.Connect(nrns_ad, sr_ad, params_conn_all_to_all, params_syn_static)
 
 nest.Connect(mm_reg, nrns_reg_record, params_conn_all_to_all, params_syn_static)
 nest.Connect(mm_ad, nrns_ad_record, params_conn_all_to_all, params_syn_static)
@@ -479,12 +501,12 @@ dtype_in_spks = np.float32  # data type of input spikes - for reproducing TF res
 input_spike_bools_list = []
 target_cues_list = []
 
-for iteration in range(n_iter):
+for _ in range(n_iter):
     input_spike_bools, target_cues = generate_evidence_accumulation_input_output(
         batch_size, n_in, prob_group, input_spike_prob, n_cues, n_input_symbols, steps
     )
     input_spike_bools_list.append(input_spike_bools)
-    target_cues_list.extend(target_cues.tolist())
+    target_cues_list.extend(target_cues)
 
 input_spike_bools_arr = np.array(input_spike_bools_list).reshape(steps["task"], n_in)
 timeline_task = np.arange(0.0, duration["task"], duration["step"]) + duration["offset_gen"]
@@ -574,7 +596,9 @@ weights_post_train = {
 events_mm_reg = mm_reg.get("events")
 events_mm_ad = mm_ad.get("events")
 events_mm_out = mm_out.get("events")
-events_sr = sr.get("events")
+events_sr_in = sr_in.get("events")
+events_sr_reg = sr_reg.get("events")
+events_sr_ad = sr_ad.get("events")
 events_wr = wr.get("events")
 
 # %% ###########################################################################################################
@@ -635,6 +659,7 @@ plt.rcParams.update(
 # plotted against the iterations.
 
 fig, axs = plt.subplots(2, 1, sharex=True)
+fig.suptitle("Training error")
 
 axs[0].plot(range(1, n_iter + 1), loss)
 axs[0].set_ylabel(r"$E = -\sum_{t,k} \pi_k^{*,t} \log \pi_k^t$")
@@ -665,11 +690,10 @@ def plot_recordable(ax, events, recordable, ylabel, xlims):
     ax.set_ylim(np.min(events[recordable]) - margin, np.max(events[recordable]) + margin)
 
 
-def plot_spikes(ax, events, nrns, ylabel, xlims):
+def plot_spikes(ax, events, ylabel, xlims):
     idc_times = (events["times"] > xlims[0]) & (events["times"] < xlims[1])
-    idc_sender = np.isin(events["senders"][idc_times], nrns.tolist())
-    senders_subset = events["senders"][idc_times][idc_sender]
-    times_subset = events["times"][idc_times][idc_sender]
+    senders_subset = events["senders"][idc_times]
+    times_subset = events["times"][idc_times]
 
     ax.scatter(times_subset, senders_subset, s=0.1)
     ax.set_ylabel(ylabel)
@@ -677,17 +701,21 @@ def plot_spikes(ax, events, nrns, ylabel, xlims):
     ax.set_ylim(np.min(senders_subset) - margin, np.max(senders_subset) + margin)
 
 
-for xlims in [(0, steps["sequence"]), (steps["task"] - steps["sequence"], steps["task"])]:
+for title, xlims in zip(
+    ["Dynamic variables before training", "Dynamic variables after training"],
+    [(0, steps["sequence"]), (steps["task"] - steps["sequence"], steps["task"])],
+):
     fig, axs = plt.subplots(14, 1, sharex=True, figsize=(8, 14), gridspec_kw={"hspace": 0.4, "left": 0.2})
+    fig.suptitle(title)
 
-    plot_spikes(axs[0], events_sr, nrns_in, r"$z_i$" + "\n", xlims)
-    plot_spikes(axs[1], events_sr, nrns_reg, r"$z_j$" + "\n", xlims)
+    plot_spikes(axs[0], events_sr_in, r"$z_i$" + "\n", xlims)
+    plot_spikes(axs[1], events_sr_reg, r"$z_j$" + "\n", xlims)
 
     plot_recordable(axs[2], events_mm_reg, "V_m", r"$v_j$" + "\n(mV)", xlims)
     plot_recordable(axs[3], events_mm_reg, "surrogate_gradient", r"$\psi_j$" + "\n", xlims)
     plot_recordable(axs[4], events_mm_reg, "learning_signal", r"$L_j$" + "\n(pA)", xlims)
 
-    plot_spikes(axs[5], events_sr, nrns_ad, r"$z_j$" + "\n", xlims)
+    plot_spikes(axs[5], events_sr_ad, r"$z_j$" + "\n", xlims)
 
     plot_recordable(axs[6], events_mm_ad, "V_m", r"$v_j$" + "\n(mV)", xlims)
     plot_recordable(axs[7], events_mm_ad, "surrogate_gradient", r"$\psi_j$" + "\n", xlims)
@@ -730,6 +758,7 @@ def plot_weight_time_course(ax, events, nrns_senders, nrns_targets, label, ylabe
 
 
 fig, axs = plt.subplots(3, 1, sharex=True, figsize=(3, 4))
+fig.suptitle("Weight time courses")
 
 plot_weight_time_course(axs[0], events_wr, nrns_in[:n_record_w], nrns_rec[:n_record_w], "in_rec", r"$W_\text{in}$ (pA)")
 plot_weight_time_course(
@@ -755,6 +784,7 @@ cmap = mpl.colors.LinearSegmentedColormap.from_list(
 )
 
 fig, axs = plt.subplots(3, 2, sharex="col", sharey="row")
+fig.suptitle("Weight matrices")
 
 all_w_extrema = []
 
@@ -777,8 +807,8 @@ axs[1, 0].set_ylabel("recurrent\nneurons")
 axs[2, 0].set_ylabel("readout\nneurons")
 fig.align_ylabels(axs[:, 0])
 
-axs[0, 0].text(0.5, 1.1, "pre-training", transform=axs[0, 0].transAxes, ha="center")
-axs[0, 1].text(0.5, 1.1, "post-training", transform=axs[0, 1].transAxes, ha="center")
+axs[0, 0].text(0.5, 1.1, "before training", transform=axs[0, 0].transAxes, ha="center")
+axs[0, 1].text(0.5, 1.1, "after training", transform=axs[0, 1].transAxes, ha="center")
 
 axs[2, 0].yaxis.get_major_locator().set_params(integer=True)
 

@@ -336,24 +336,21 @@ def test_eprop_regression():
     readout_signal = np.array([readout_signal[senders == i] for i in set(senders)])
     target_signal = np.array([target_signal[senders == i] for i in set(senders)])
 
-    readout_signal = readout_signal.reshape(n_out, n_iter, batch_size, steps["sequence"])
-    target_signal = target_signal.reshape(n_out, n_iter, batch_size, steps["sequence"])
+    readout_signal = readout_signal.reshape((n_out, n_iter, batch_size, steps["sequence"]))
+    target_signal = target_signal.reshape((n_out, n_iter, batch_size, steps["sequence"]))
 
     loss = 0.5 * np.mean(np.sum((readout_signal - target_signal) ** 2, axis=3), axis=(0, 2))
 
     # Verify results
+    loss_nest_reference = [
+        101.964356999041,
+        103.466731126205,
+        103.340607074771,
+        103.680244037686,
+        104.412775748752,
+    ]
 
-    loss_NEST_reference = np.array(
-        [
-            101.964356999041,
-            103.466731126205,
-            103.340607074771,
-            103.680244037686,
-            104.412775748752,
-        ]
-    )
-
-    loss_TF_reference = np.array(
+    loss_tf_reference = np.array(
         [
             101.964363098144,
             103.466735839843,
@@ -363,11 +360,36 @@ def test_eprop_regression():
         ]
     )
 
-    assert np.allclose(loss, loss_NEST_reference, rtol=1e-8)
-    assert np.allclose(loss, loss_TF_reference, rtol=1e-7)
+    assert np.allclose(loss, loss_tf_reference, rtol=1e-7)
+    assert np.allclose(loss, loss_nest_reference, rtol=1e-8)
 
 
-def test_eprop_classification():
+@pytest.mark.parametrize(
+    "batch_size,loss_nest_reference",
+    [
+        (
+            1,
+            [
+                0.741152550006,
+                0.740388187700,
+                0.665785233177,
+                0.663644193322,
+                0.729428962844,
+            ],
+        ),
+        (
+            2,
+            [
+                0.702163370672,
+                0.735555303152,
+                0.740354864111,
+                0.683882815282,
+                0.707841122268,
+            ],
+        ),
+    ],
+)
+def test_eprop_classification(batch_size, loss_nest_reference):
     """
     Test correct computation of losses for a classification task
     (for details on the task, see nest-simulator/pynest/examples/eprop_plasticity/eprop_supervised_classification_evidence-accumulation_bsshslm_2020.py)
@@ -393,7 +415,6 @@ def test_eprop_classification():
 
     # Define timing of task
 
-    batch_size = 1
     n_iter = 5
 
     n_input_symbols = 4
@@ -703,12 +724,12 @@ def test_eprop_classification():
     input_spike_bools_list = []
     target_cues_list = []
 
-    for iteration in range(n_iter):
+    for _ in range(n_iter):
         input_spike_bools, target_cues = generate_evidence_accumulation_input_output(
             batch_size, n_in, prob_group, input_spike_prob, n_cues, n_input_symbols, steps
         )
         input_spike_bools_list.append(input_spike_bools)
-        target_cues_list.extend(target_cues.tolist())
+        target_cues_list.extend(target_cues)
 
     input_spike_bools_arr = np.array(input_spike_bools_list).reshape(steps["task"], n_in)
     timeline_task = np.arange(0.0, duration["task"], duration["step"]) + duration["offset_gen"]
@@ -759,17 +780,7 @@ def test_eprop_classification():
 
     # Verify results
 
-    loss_NEST_reference = np.array(
-        [
-            0.741152550006,
-            0.740388187700,
-            0.665785233177,
-            0.663644193322,
-            0.729428962844,
-        ]
-    )
-
-    loss_TF_reference = np.array(
+    loss_tf_reference = np.array(
         [
             0.741152524948,
             0.740388214588,
@@ -779,5 +790,6 @@ def test_eprop_classification():
         ]
     )
 
-    assert np.allclose(loss, loss_NEST_reference, rtol=1e-8)
-    assert np.allclose(loss, loss_TF_reference, rtol=1e-6)
+    if batch_size == 1:
+        assert np.allclose(loss, loss_tf_reference, rtol=1e-6)
+    assert np.allclose(loss, loss_nest_reference, rtol=1e-8)

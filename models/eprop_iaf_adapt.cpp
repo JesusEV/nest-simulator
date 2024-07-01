@@ -353,7 +353,7 @@ eprop_iaf_adapt::update( Time const& origin, const long from, const long to )
       }
     }
 
-    write_firing_rate_reg_to_history( t, t, S_.z_, P_.f_target_, P_.kappa_, P_.c_reg_ );
+    write_firing_rate_reg_to_history( t, S_.z_, P_.f_target_, P_.kappa_, P_.c_reg_ );
 
     S_.learning_signal_ = get_learning_signal_from_history( t, false );
 
@@ -429,6 +429,7 @@ eprop_iaf_adapt::compute_gradient( const long t_spike,
   double grad = 0.0;             // gradient
 
   const EpropSynapseCommonProperties& ecp = static_cast< const EpropSynapseCommonProperties& >( cp );
+  const auto optimize_each_step = ( *ecp.optimizer_cp_ ).optimize_each_step_;
 
   auto eprop_hist_it = get_eprop_history( t_spike_previous - 1 );
 
@@ -447,9 +448,21 @@ eprop_iaf_adapt::compute_gradient( const long t_spike,
     e = psi * ( z_bar - P_.adapt_beta_ * epsilon );
     epsilon = V_.P_adapt_ * epsilon + e;
     e_bar = P_.kappa_ * e_bar + e;
-    grad = L * e_bar;
 
-    weight = optimizer->optimized_weight( *ecp.optimizer_cp_, t, grad, weight );
+    if ( optimize_each_step )
+    {
+      grad = L * e_bar;
+      weight = optimizer->optimized_weight( *ecp.optimizer_cp_, t, grad, weight );
+    }
+    else
+    {
+      grad += L * e_bar;
+    }
+  }
+
+  if ( not optimize_each_step )
+  {
+    weight = optimizer->optimized_weight( *ecp.optimizer_cp_, t_compute_until, grad, weight );
   }
 
   const int power = t_spike - ( t_spike_previous + P_.eprop_isi_trace_cutoff_ );

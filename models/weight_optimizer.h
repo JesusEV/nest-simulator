@@ -29,7 +29,7 @@
 namespace nest
 {
 
-/* BeginUserDocs: e-prop plasticity
+/* BeginUserDocs: e-prop plasticity, synapse
 
 Short description
 +++++++++++++++++
@@ -68,21 +68,31 @@ The TensorFlow implementation deviates from [1]_ in that it assumes
 :math:`\hat{\epsilon} = \epsilon \sqrt{ 1 - \beta_2^t }` to be constant, whereas [1]_
 assumes :math:`\epsilon = \hat{\epsilon} \sqrt{ 1 - \beta_2^t }` to be constant.
 
+When `optimize_each_step` is set to `True`, the weights are optimized at every
+time step. If set to `False`, optimization occurs once per spike, resulting in a
+significant speed-up. For gradient descent, both settings yield the same
+results under exact arithmetic; however, small numerical differences may be
+observed due to floating point precision. For the Adam optimizer, only setting
+`optimize_each_step` to `True` precisely implements the algorithm as described
+in [2]_. The impact of this setting on learning performance may vary depending
+on the task.
+
 Parameters
 ++++++++++
 
 The following parameters can be set in the status dictionary.
 
-========== ==== ========================= ======= =================================
+================== ==== ========================= ======= =================================
 **Common optimizer parameters**
------------------------------------------------------------------------------------
-Parameter  Unit  Math equivalent          Default Description
-========== ==== ========================= ======= =================================
-batch_size                                      1 Size of batch
-eta             :math:`\eta`                 1e-4 Learning rate
-Wmax         pA :math:`W_{ji}^\text{max}`   100.0 Maximal value for synaptic weight
-Wmin         pA :math:`W_{ji}^\text{min}`  -100.0 Minimal value for synaptic weight
-========== ==== ========================= ======= =================================
+-------------------------------------------------------------------------------------------
+Parameter          Unit Math equivalent           Default Description
+================== ==== ========================= ======= =================================
+batch_size                                              1 Size of batch
+eta                     :math:`\eta`                 1e-4 Learning rate
+optimize_each_step                                   True
+Wmax                 pA :math:`W_{ji}^\text{max}`   100.0 Maximal value for synaptic weight
+Wmin                 pA :math:`W_{ji}^\text{min}`  -100.0 Minimal value for synaptic weight
+================== ==== ========================= ======= =================================
 
 ========= ==== =============== ================ ==============
 **Gradient descent parameters (default optimizer)**
@@ -123,7 +133,8 @@ References
        https://proceedings.neurips.cc/paper_files/paper/2018/hash/185e65bc40581880c4f2c82958de8cfe-Abstract.html
 
 .. [2] Kingma DP, Ba JL (2015). Adam: A method for stochastic optimization.
-       arXiv preprint, 1412.6980. https://doi.org/10.48550/arXiv.1412.6980
+       Proceedings of 3rd International Conference for Learning Representations (ICLR).
+       https://doi.org/10.48550/arXiv.1412.6980
 
 .. [3] https://github.com/keras-team/keras/blob/v2.15.0/keras/optimizers/adam.py#L26-L220
 
@@ -204,6 +215,9 @@ public:
 
   //! Maximal value for synaptic weight.
   double Wmax_;
+
+  //! If true, optimize each step, else once per spike.
+  bool optimize_each_step_;
 };
 
 /**

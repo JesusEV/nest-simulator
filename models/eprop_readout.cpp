@@ -341,6 +341,7 @@ eprop_readout::compute_gradient( const long t_spike,
   double grad = 0.0;             // gradient
 
   const EpropSynapseCommonProperties& ecp = static_cast< const EpropSynapseCommonProperties& >( cp );
+  const auto optimize_each_step = ( *ecp.optimizer_cp_ ).optimize_each_step_;
 
   auto eprop_hist_it = get_eprop_history( t_spike_previous - 1 );
 
@@ -355,9 +356,21 @@ eprop_readout::compute_gradient( const long t_spike,
     L = eprop_hist_it->error_signal_;
 
     z_bar = V_.P_v_m_ * z_bar + z;
-    grad = L * z_bar;
 
-    weight = optimizer->optimized_weight( *ecp.optimizer_cp_, t, grad, weight );
+    if ( optimize_each_step )
+    {
+      grad = L * z_bar;
+      weight = optimizer->optimized_weight( *ecp.optimizer_cp_, t, grad, weight );
+    }
+    else
+    {
+      grad += L * z_bar;
+    }
+  }
+
+  if ( not optimize_each_step )
+  {
+    weight = optimizer->optimized_weight( *ecp.optimizer_cp_, t_compute_until, grad, weight );
   }
 
   const int power = t_spike - ( t_spike_previous + P_.eprop_isi_trace_cutoff_ );

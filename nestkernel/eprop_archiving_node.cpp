@@ -189,18 +189,8 @@ EpropArchivingNodeRecurrent::write_firing_rate_reg_to_history( const long t_curr
   firing_rate_reg_history_.emplace_back( t_current_update + shift, firing_rate_reg );
 }
 
-std::vector< HistEntryEpropFiringRateReg >::iterator
-EpropArchivingNodeRecurrent::get_firing_rate_reg_history( const long time_step )
-{
-  const auto it_hist = std::lower_bound( firing_rate_reg_history_.begin(), firing_rate_reg_history_.end(), time_step );
-  assert( it_hist != firing_rate_reg_history_.end() );
-
-  return it_hist;
-}
-
 void
 EpropArchivingNodeRecurrent::write_firing_rate_reg_to_history( const long t,
-  const long interval_step,
   const double z,
   const double f_target,
   const double kappa,
@@ -221,6 +211,15 @@ EpropArchivingNodeRecurrent::write_firing_rate_reg_to_history( const long t,
 
   auto it_hist = get_eprop_history( t );
   it_hist->learning_signal_ += firing_rate_reg_;
+}
+
+std::vector< HistEntryEpropFiringRateReg >::iterator
+EpropArchivingNodeRecurrent::get_firing_rate_reg_history( const long time_step )
+{
+  const auto it_hist = std::lower_bound( firing_rate_reg_history_.begin(), firing_rate_reg_history_.end(), time_step );
+  assert( it_hist != firing_rate_reg_history_.end() );
+
+  return it_hist;
 }
 
 double
@@ -282,7 +281,7 @@ EpropArchivingNodeReadout::emplace_new_eprop_history_entry( const long time_step
 
   const long shift = has_norm_step ? delay_out_norm_ : 0;
 
-  eprop_history_.emplace_back( time_step - shift, 5.0 );
+  eprop_history_.emplace_back( time_step - shift, 0.0 );
 }
 
 void

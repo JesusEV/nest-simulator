@@ -287,7 +287,7 @@ void register_eprop_iaf( const std::string& name );
 
 /**
  * Class implementing a current-based leaky integrate-and-fire neuron model with delta-shaped postsynaptic currents for
- * e-prop plasticity according to Bellec et al (2020) with additional biological features described in
+ * e-prop plasticity according to Bellec et al. (2020) with additional biological features described in
  * Korcsak-Gorzo, Stapmanns, and Espinoza Valverde et al. (in preparation).
  */
 class eprop_iaf : public EpropArchivingNodeRecurrent
@@ -318,7 +318,6 @@ public:
   void get_status( DictionaryDatum& ) const override;
   void set_status( const DictionaryDatum& ) override;
 
-protected:
 private:
   void init_buffers_() override;
   void pre_run_hook() override;

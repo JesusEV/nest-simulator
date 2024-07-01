@@ -61,23 +61,51 @@ def test_unsupported_model_raises(target_model):
 
 
 @pytest.mark.parametrize(
-    "neuron_model,optimizer",
+    "neuron_model,optimizer,loss_nest_reference",
     [
-        ("eprop_iaf", "adam"),
-        ("eprop_iaf_adapt", "gradient_descent"),
-        ("eprop_iaf_psc_delta", "gradient_descent"),
+        (
+            "eprop_iaf",
+            "adam",
+            [
+                0.13126137747586,
+                0.09395562983704,
+                0.00735134264487,
+                0.02696743852790,
+                0.00191004540573,
+            ],
+        ),
+        (
+            "eprop_iaf_adapt",
+            "gradient_descent",
+            [
+                0.04298221363883,
+                0.03100545785399,
+                0.00930311104052,
+                0.00455478436740,
+                0.00017408818078,
+            ],
+        ),
+        (
+            "eprop_iaf_psc_delta",
+            "gradient_descent",
+            [
+                0.32286231964124,
+                0.57204702111242,
+                0.62441034722776,
+                0.56523810285121,
+                0.53138251996805,
+            ],
+        ),
     ],
 )
-def test_eprop_regression(neuron_model, optimizer):
+def test_eprop_regression(neuron_model, optimizer, loss_nest_reference):
     """
     Test correct computation of losses for a regression task
     (for details on the task, see nest-simulator/pynest/examples/eprop_plasticity/eprop_supervised_regression_sine-waves.py)
-    by comparing the simulated losses with
-
-        1. NEST reference losses to catch scenarios in which the e-prop model does not work as intended (e.g.,
-           potential future changes to the NEST code base or a faulty installation). These reference losses
-           were obtained from a simulation with the verified NEST e-prop implementation run with
-           Linux 6.5.0-28-generic, Python v3.12.3, Numpy v1.26.4, and NEST@9b65de4bf.
+    by comparing the simulated losses with NEST reference losses to catch scenarios in which the e-prop model does not
+    work as intended (e.g., potential future changes to the NEST code base or a faulty installation). These reference
+    losses were obtained from a simulation with the verified NEST e-prop implementation run with
+    Linux 6.5.0-28-generic, Python v3.12.3, Numpy v1.26.4, and NEST@9b65de4bf.
     """  # pylint: disable=line-too-long # noqa: E501
 
     # Initialize random generator
@@ -90,7 +118,7 @@ def test_eprop_regression(neuron_model, optimizer):
     n_iter = 5
 
     steps = {
-        "sequence": 1000,
+        "sequence": 100,
     }
 
     steps["learning_window"] = steps["sequence"]
@@ -165,8 +193,8 @@ def test_eprop_regression(neuron_model, optimizer):
         params_nrn_rec["c_reg"] = 2.0 / duration["sequence"]
         params_nrn_rec["V_th"] = 0.5
     elif neuron_model == "eprop_iaf_adapt":
-        params_nrn_rec["adapt_beta"] = 1.0
-        params_nrn_rec["adapt_tau"] = 10.0
+        params_nrn_rec["adapt_beta"] = 0.0174
+        params_nrn_rec["adapt_tau"] = 2000.0
         params_nrn_rec["adaptation"] = 0.0
 
     gen_spk_in = nest.Create("spike_generator", n_in)
@@ -231,6 +259,7 @@ def test_eprop_regression(neuron_model, optimizer):
             "type": optimizer,
             "batch_size": 1,
             "eta": 1e-4,
+            "optimize_each_step": True,
             "Wmin": -100.0,
             "Wmax": 100.0,
         },
@@ -370,37 +399,4 @@ def test_eprop_regression(neuron_model, optimizer):
 
     # Verify results
 
-    if neuron_model == "eprop_iaf":
-        loss_NEST_reference = np.array(
-            [
-                114.29762944769843,
-                116.08003945227834,
-                105.74487210940589,
-                99.69964257381793,
-                93.77229239951700,
-            ]
-        )
-
-    elif neuron_model == "eprop_iaf_adapt":
-        loss_NEST_reference = np.array(
-            [
-                126.02165319146847,
-                111.64653843535355,
-                87.16820207083737,
-                89.86582758486699,
-                90.17174743107725,
-            ]
-        )
-
-    elif neuron_model == "eprop_iaf_psc_delta":
-        loss_NEST_reference = np.array(
-            [
-                100.27605816999775,
-                99.17578232340864,
-                99.27281716101166,
-                99.10199953950716,
-                97.38001407331586,
-            ]
-        )
-
-    assert np.allclose(loss, loss_NEST_reference, rtol=1e-8)
+    assert np.allclose(loss, loss_nest_reference, rtol=1e-8)

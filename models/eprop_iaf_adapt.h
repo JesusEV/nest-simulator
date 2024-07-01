@@ -303,7 +303,7 @@ void register_eprop_iaf_adapt( const std::string& name );
 
 /**
  * Class implementing a current-based leaky integrate-and-fire neuron model with delta-shaped postsynaptic currents and
- * threshold adaptation for e-prop plasticity according to Bellec et al (2020) with additional biological features
+ * threshold adaptation for e-prop plasticity according to Bellec et al. (2020) with additional biological features
  * described in Korcsak-Gorzo, Stapmanns, and Espinoza Valverde et al. (in preparation).
  */
 class eprop_iaf_adapt : public EpropArchivingNodeRecurrent
@@ -352,7 +352,6 @@ private:
 
   long get_shift() const override;
   bool is_eprop_recurrent_node() const override;
-
   long get_eprop_isi_trace_cutoff() override;
 
   //! Compute the surrogate gradient.
