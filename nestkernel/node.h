@@ -846,26 +846,11 @@ public:
    *
    * @params presyn_isis  is cleared during call
    */
-  virtual void compute_gradient( const long t_spike,
-    const long t_spike_previous,
-    double& z_previous,
-    double& z_bar,
-    double& e_bar,
-    double& epsilon,
-    double& weight,
-    const CommonSynapseProperties& cp,
-    WeightOptimizer* optimizer );
 
-  /**
-   * Compute gradient change for eprop synapses.
-   *
-   * This method is called from an eprop synapse on the eprop target neuron and returns the change in gradient.
-   *
-   * @params presyn_isis  is cleared during call
-   */
   virtual void compute_gradient( const long t_spike,
     const long t_spike_previous,
     std::queue< double >& z_previous_buffer,
+    double& z_previous,
     double& z_bar,
     double& e_bar,
     double& epsilon,

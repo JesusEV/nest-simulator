@@ -571,21 +571,8 @@ nest::Node::get_tau_syn_in( int )
 void
 nest::Node::compute_gradient( const long,
   const long,
-  double&,
-  double&,
-  double&,
-  double&,
-  double&,
-  const CommonSynapseProperties&,
-  WeightOptimizer* )
-{
-  throw IllegalConnection( "The target node does not support compute_gradient()." );
-}
-
-void
-nest::Node::compute_gradient( const long,
-  const long,
   std::queue< double >&,
+  double&,
   double&,
   double&,
   double&,

@@ -514,16 +514,8 @@ eprop_synapse< targetidentifierT >::send( Event& e, size_t thread, const EpropSy
 
   if ( t_spike_previous_ != 0 )
   {
-    if ( delay_total > 1 )
-    {
-      target->compute_gradient(
-        t_spike, t_spike_previous_, z_previous_buffer_, z_bar_, e_bar_, epsilon_, weight_, cp, optimizer_ );
-    }
-    else
-    {
-      target->compute_gradient(
-        t_spike, t_spike_previous_, z_previous_, z_bar_, e_bar_, epsilon_, weight_, cp, optimizer_ );
-    }
+    target->compute_gradient(
+      t_spike, t_spike_previous_, z_previous_buffer_, z_previous_, z_bar_, e_bar_, epsilon_, weight_, cp, optimizer_ );
   }
   else
   {

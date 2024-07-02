@@ -453,6 +453,7 @@ eprop_iaf_adapt::handle( DataLoggingRequest& e )
 void
 eprop_iaf_adapt::compute_gradient( const long t_spike,
   const long t_spike_previous,
+  std::queue< double >& z_previous_buffer,
   double& z_previous,
   double& z_bar,
   double& e_bar,
@@ -471,89 +472,19 @@ eprop_iaf_adapt::compute_gradient( const long t_spike,
   const EpropSynapseCommonProperties& ecp = static_cast< const EpropSynapseCommonProperties& >( cp );
   const auto optimize_each_step = ( *ecp.optimizer_cp_ ).optimize_each_step_;
 
-  auto eprop_hist_it = get_eprop_history( t_spike_previous - 1 );
-
-  const long t_compute_until = std::min( t_spike_previous + P_.eprop_isi_trace_cutoff_, t_spike );
-
-  for ( long t = t_spike_previous; t < t_compute_until; ++t, ++eprop_hist_it )
-  {
-    z = z_previous;
-    z_previous = z_current;
-    z_current = 0.0;
-
-    psi = eprop_hist_it->surrogate_gradient_;
-    L = eprop_hist_it->learning_signal_;
-
-    z_bar = V_.P_v_m_ * z_bar + V_.P_z_in_ * z;
-    e = psi * ( z_bar - P_.adapt_beta_ * epsilon );
-    epsilon = V_.P_adapt_ * epsilon + e;
-    e_bar = P_.kappa_ * e_bar + ( 1.0 - P_.kappa_ ) * e;
-    
-    if ( optimize_each_step )
-    {
-      grad = L * e_bar;
-      weight = optimizer->optimized_weight( *ecp.optimizer_cp_, t, grad, weight );
-    }
-    else
-    {
-      grad += L * e_bar;
-    }
-  }
-
-  if ( not optimize_each_step )
-  {
-    weight = optimizer->optimized_weight( *ecp.optimizer_cp_, t_compute_until, grad, weight );
-  }
-
-  const int power = t_spike - ( t_spike_previous + P_.eprop_isi_trace_cutoff_ );
-
-  if ( power > 0 )
-  {
-    z_bar *= std::pow( V_.P_v_m_, power );
-    e_bar *= std::pow( P_.kappa_, power );
-    epsilon *= std::pow( V_.P_adapt_, power );
-  }
-}
-
-void
-eprop_iaf_adapt::compute_gradient( const long t_spike,
-  const long t_spike_previous,
-  std::queue< double >& z_previous_buffer,
-  double& z_bar,
-  double& e_bar,
-  double& epsilon,
-  double& weight,
-  const CommonSynapseProperties& cp,
-  WeightOptimizer* optimizer )
-{
-  double e = 0.0;    // eligibility trace
-  double z = 0.0;    // spiking variable
-  double psi = 0.0;  // surrogate gradient
-  double L = 0.0;    // learning signal
-  double grad = 0.0; // gradient
-
-  const EpropSynapseCommonProperties& ecp = static_cast< const EpropSynapseCommonProperties& >( cp );
-  const auto optimize_each_step = ( *ecp.optimizer_cp_ ).optimize_each_step_;
-
   auto eprop_hist_it = get_eprop_history( t_spike_previous - P_.delay_total_ );
 
   const long t_compute_until = std::min( t_spike_previous + P_.eprop_isi_trace_cutoff_, t_spike );
 
   for ( long t = t_spike_previous; t < t_compute_until; ++t, ++eprop_hist_it )
   {
-    if ( !z_previous_buffer.empty() )
+    if ( P_.delay_total_ > 1 )
     {
-      z = z_previous_buffer.front();
-      z_previous_buffer.pop();
-    }
-
-    if ( t_spike - t > 1 )
-    {
-      z_previous_buffer.push( 0.0 );
+      update_pre_syn_buffer_multiple_entries( z, z_current, z_previous, z_previous_buffer, t_spike, t );
     }
     else
     {
-      z_previous_buffer.push( 1.0 );
+      update_pre_syn_buffer_one_entry( z, z_current, z_previous, z_previous_buffer, t_spike, t );
     }
 
     psi = eprop_hist_it->surrogate_gradient_;
