@@ -475,7 +475,20 @@ eprop_iaf_psc_delta::compute_gradient( const long t_spike,
     e_bar = P_.kappa_ * e_bar + e;
     e_bar_reg = P_.kappa_reg_ * e_bar_reg + ( 1.0 - P_.kappa_reg_ ) * e;
 
-    weight = optimizer->optimized_weight( *ecp.optimizer_cp_, t, grad, weight );
+    if ( optimize_each_step )
+    {
+      grad = L * e_bar;
+      weight = optimizer->optimized_weight( *ecp.optimizer_cp_, t, grad, weight );
+    }
+    else
+    {
+      grad += L * e_bar;
+    }
+  }
+
+  if ( not optimize_each_step )
+  {
+    weight = optimizer->optimized_weight( *ecp.optimizer_cp_, t_compute_until, grad, weight );
   }
 
   const int power = t_spike - ( t_spike_previous + P_.eprop_isi_trace_cutoff_ );
@@ -505,6 +518,7 @@ eprop_iaf_psc_delta::compute_gradient( const long t_spike,
   double grad = 0.0; // gradient
 
   const EpropSynapseCommonProperties& ecp = static_cast< const EpropSynapseCommonProperties& >( cp );
+  const auto optimize_each_step = ( *ecp.optimizer_cp_ ).optimize_each_step_;  
 
   auto eprop_hist_it = get_eprop_history( t_spike_previous - P_.delay_total_ );
 
