@@ -106,13 +106,6 @@ public:
    */
   void erase_used_eprop_history( const long eprop_isi_trace_cutoff );
 
-  /**
-   * @brief Retrieves eprop history size.
-   *
-   * Retrieves the size of the eprop history buffer.
-   */
-  double get_eprop_history_duration() const;
-
 protected:
   //! Returns correct shift for history depending on whether it is a normal or a bsshslm_2020 model.
   virtual long model_dependent_history_shift_() const = 0;

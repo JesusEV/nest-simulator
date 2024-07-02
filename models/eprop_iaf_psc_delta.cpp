@@ -436,6 +436,7 @@ eprop_iaf_psc_delta::handle( DataLoggingRequest& e )
 void
 eprop_iaf_psc_delta::compute_gradient( const long t_spike,
   const long t_spike_previous,
+  std::queue< double >& z_previous_buffer,
   double& z_previous,
   double& z_bar,
   double& e_bar,
@@ -458,7 +459,7 @@ eprop_iaf_psc_delta::compute_gradient( const long t_spike,
 
   auto eprop_hist_it = get_eprop_history( t_spike_previous - 1 );
 
-  const long t_compute_until = std::min( t_spike_previous + V_.eprop_isi_trace_cutoff_steps_, t_spike );
+  const long t_compute_until = std::min( t_spike_previous + P_.eprop_isi_trace_cutoff_, t_spike );
 
   for ( long t = t_spike_previous; t < t_compute_until; ++t, ++eprop_hist_it )
   {
@@ -468,12 +469,10 @@ eprop_iaf_psc_delta::compute_gradient( const long t_spike,
 
     psi = eprop_hist_it->surrogate_gradient_;
     L = eprop_hist_it->learning_signal_;
-    firing_rate_reg = eprop_hist_it->firing_rate_reg_;
 
-    z_bar = V_.P_v_m_ * z_bar + z;
+    z_bar = V_.P33_ * z_bar + V_.P_z_in_ * z;
     e = psi * z_bar;
-    e_bar = P_.kappa_ * e_bar + e;
-    e_bar_reg = P_.kappa_reg_ * e_bar_reg + ( 1.0 - P_.kappa_reg_ ) * e;
+    e_bar = P_.kappa_ * e_bar + ( 1.0 - P_.kappa_ ) * e;
 
     if ( optimize_each_step )
     {
@@ -526,19 +525,13 @@ eprop_iaf_psc_delta::compute_gradient( const long t_spike,
 
   for ( long t = t_spike_previous; t < t_compute_until; ++t, ++eprop_hist_it )
   {
-    if ( !z_previous_buffer.empty() )
+    if ( P_.delay_total_ > 1 )
     {
-      z = z_previous_buffer.front();
-      z_previous_buffer.pop();
-    }
-
-    if ( t_spike - t > 1 )
-    {
-      z_previous_buffer.push( 0.0 );
+      update_pre_syn_buffer_multiple_entries( z, z_current, z_previous, z_previous_buffer, t_spike, t );
     }
     else
     {
-      z_previous_buffer.push( 1.0 );
+      update_pre_syn_buffer_one_entry( z, z_current, z_previous, z_previous_buffer, t_spike, t );
     }
 
     psi = eprop_hist_it->surrogate_gradient_;

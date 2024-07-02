@@ -388,20 +388,9 @@ private:
 
   void update( Time const&, const long, const long ) override;
 
-  void compute_gradient( const long,
-    const long,
-    double&,
-    double&,
-    double&,
-    double&,
-    double&,
-    double&,
-    const CommonSynapseProperties&,
-    WeightOptimizer* ) override;
-
   void compute_gradient( const long t_spike,
     const long t_spike_previous,
-    std::queue< double >& z_previous_buffer,
+    double& z_previous,
     double& z_bar,
     double& e_bar,
     double& epsilon,

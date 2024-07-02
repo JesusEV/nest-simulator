@@ -875,7 +875,6 @@ public:
     double& z_previous,
     double& z_bar,
     double& e_bar,
-    double& e_bar_reg,
     double& epsilon,
     double& weight,
     const CommonSynapseProperties& cp,
@@ -884,21 +883,14 @@ public:
   /**
    * Compute gradient change for eprop synapses.
    *
-   * This method is called from an eprop synapse on the eprop target neuron. It updates various parameters related to
-   * e-prop plasticity according to Bellec et al. (2020).
+   * This method is called from an eprop synapse on the eprop target neuron and returns the change in gradient.
    *
-   * @param presyn_isis [in, out] Vector of inter-spike intervals.
-   * @param t_previous_update [in] Time of the last update.
-   * @param t_previous_trigger_spike [in] Time of the last trigger spike.
-   * @param kappa [in] Decay factor for the eligibility trace.
-   * @param average_gradient [in] Boolean flag determining whether to compute an average of the gradients over the given
-   * period.
-   *
-   * @return Returns the computed gradient value.
+   * @params presyn_isis  is cleared during call
    */
   virtual void compute_gradient( const long t_spike,
     const long t_spike_previous,
     std::queue< double >& z_previous_buffer,
+    double& z_previous,
     double& z_bar,
     double& e_bar,
     double& epsilon,
