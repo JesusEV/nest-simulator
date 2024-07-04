@@ -73,6 +73,7 @@ References
 # ~~~~~~~~~~~~~~~~
 # We begin by importing all libraries required for the simulation, analysis, and visualization.
 
+import argparse
 import os
 import zipfile
 
@@ -83,6 +84,7 @@ import numpy as np
 import requests
 from cycler import cycler
 from IPython.display import Image
+from toolbox import Tools
 
 # %% ###########################################################################################################
 # Schematic of network architecture
@@ -100,13 +102,34 @@ except Exception:
 # Setup
 # ~~~~~
 
+parser = argparse.ArgumentParser()
+
+parser.add_argument("--apply_dales_law", type=str.lower, nargs="*", default=[])
+parser.add_argument("--batch_size", type=int, default=1)
+parser.add_argument("--c_reg", type=float, default=2.0)
+parser.add_argument("--cutoff", type=int, default=100)
+parser.add_argument("--eta", type=float, default=5e-3)
+parser.add_argument("--kappa", type=float, default=0.99)
+parser.add_argument("--n_iter", type=int, default=5)
+parser.add_argument("--nvp", type=int, default=1)
+parser.add_argument("--prevent_weight_sign_change", type=str.lower, nargs="*", default=[])
+parser.add_argument("--recordings_dir", type=str, default="./")
+parser.add_argument("--seed", type=int, default=1)
+parser.add_argument("--surrogate_gradient", type=str.lower, default="piecewise_linear")
+parser.add_argument("--surrogate_gradient_beta", type=float, default=1.0)
+parser.add_argument("--surrogate_gradient_gamma", type=float, default=0.3)
+
+args = parser.parse_args()
+
+tools = Tools(parser)
+
 # %% ###########################################################################################################
 # Initialize random generator
 # ...........................
 # We seed the numpy random generator, which will generate random initial weights as well as random input and
 # output.
 
-rng_seed = 1  # numpy random seed
+rng_seed = args.seed  # numpy random seed
 np.random.seed(rng_seed)  # fix numpy random seed
 
 # %% ###########################################################################################################
@@ -119,8 +142,8 @@ np.random.seed(rng_seed)  # fix numpy random seed
 # performance metrics, such as average accuracy and mean error. Increasing the number of iterations enhances
 # learning performance up to the point where overfitting occurs.
 
-group_size = 100  # number of instances over which to evaluate the learning performance
-n_iter = 200  # number of iterations
+group_size = args.batch_size  # number of instances over which to evaluate the learning performance
+n_iter = args.n_iter  # number of iterations
 test_every = 10  # cyclical number of training iterations after which to test the performance
 
 steps = {}
@@ -156,7 +179,9 @@ duration.update({key: value * duration["step"] for key, value in steps.items()})
 params_setup = {
     "print_time": False,  # if True, print time progress bar during simulation, set False if run as code cell
     "resolution": duration["step"],
-    "total_num_virtual_procs": 4,  # number of virtual processes, set in case of distributed computing
+    "total_num_virtual_procs": args.nvp,  # number of virtual processes, set in case of distributed computing
+    "overwrite_files": True,  # if True, overwrite existing files
+    "data_path": f"{args.recordings_dir}",  # path to save data to
 }
 
 ####################
@@ -185,7 +210,7 @@ n_out = 10  # number of readout neurons
 params_nrn_out = {
     "C_m": 1.0,  # pF, membrane capacitance - takes effect only if neurons get current input (here not the case)
     "E_L": 0.0,  # mV, leak / resting membrane potential
-    "eprop_isi_trace_cutoff": 100,  # cutoff of integration of eprop trace between spikes
+    "eprop_isi_trace_cutoff": args.cutoff,  # cutoff of integration of eprop trace between spikes
     "I_e": 0.0,  # pA, external current input
     "regular_spike_arrival": False,  # If True, input spikes arrive at end of time step, if False at beginning
     "tau_m": 100.0,  # ms, membrane time constant
@@ -193,18 +218,18 @@ params_nrn_out = {
 }
 
 params_nrn_rec = {
-    "beta": 1.0,  # width scaling of the pseudo-derivative
+    "beta": args.surrogate_gradient_beta,  # width scaling of the pseudo-derivative
     "C_m": 1.0,
-    "c_reg": 2.0 / duration["sequence"],  # firing rate regularization scaling
+    "c_reg": args.c_reg / duration["sequence"],  # firing rate regularization scaling
     "E_L": 0.0,
-    "eprop_isi_trace_cutoff": 100,
+    "eprop_isi_trace_cutoff": args.cutoff,
     "f_target": 10.0,  # spikes/s, target firing rate for firing rate regularization
-    "gamma": 0.3,  # height scaling of the pseudo-derivative
+    "gamma": args.surrogate_gradient_gamma,  # height scaling of the pseudo-derivative
     "I_e": 0.0,
     "kappa": 0.99,  # low-pass filter of the eligibility trace
     "kappa_reg": 0.99,  # low-pass filter of the firing rate for regularization
     "regular_spike_arrival": True,
-    "surrogate_gradient_function": "piecewise_linear",  # surrogate gradient / pseudo-derivative function
+    "surrogate_gradient_function": args.surrogate_gradient,  # surrogate gradient / pseudo-derivative function
     "t_ref": 0.0,  # ms, duration of refractory period
     "tau_m": 30.0,
     "V_m": 0.0,
@@ -275,6 +300,9 @@ params_sr_rec = {
     "label": "spike_recorder_rec",
 }
 
+for params in [params_mm_rec, params_mm_out, params_wr, params_sr_in, params_sr_rec]:
+    params.update({"record_to": "ascii", "precision": 16})
+
 ####################
 
 mm_rec = nest.Create("multimeter", params_mm_rec)
@@ -329,7 +357,7 @@ params_common_syn_eprop = {
     "optimizer": {
         "type": "gradient_descent",  # algorithm to optimize the weights
         "batch_size": 1,
-        "eta": 5e-3,  # learning rate
+        "eta": args.eta,  # learning rate
         "optimize_each_step": False,  # call optimizer every time step (True) or once per spike (False); both
         # yield same results for gradient descent, False offers speed-up
         "Wmin": -100.0,  # pA, minimal limit of the synaptic weights
@@ -409,6 +437,17 @@ nest.Connect(nrns_rec, sr_rec, params_conn_all_to_all, params_syn_static)
 
 nest.Connect(mm_rec, nrns_rec_record, params_conn_all_to_all, params_syn_static)
 nest.Connect(mm_out, nrns_out, params_conn_all_to_all, params_syn_static)
+
+tools.constrain_weights(
+    nrns_in,
+    nrns_rec,
+    nrns_out,
+    weights_in_rec,
+    weights_rec_rec,
+    weights_rec_out,
+    params_syn_base,
+    params_common_syn_eprop,
+)
 
 # After creating the connections, we can individually initialize the optimizer's
 # dynamic variables for single synapses (here exemplarily for two connections).
@@ -632,7 +671,8 @@ weights_pre_train = {
 
 
 def evaluate(n_iteration, iter_start):
-    events_mm_out = mm_out.get("events")
+    tools.process_recordings(duration, nrns_in, nrns_rec, nrns_out)
+    events_mm_out = tools.get_events("multimeter_out")
 
     readout_signal = events_mm_out["readout_signal"]
     target_signal = events_mm_out["target_signal"]
@@ -699,11 +739,15 @@ weights_post_train = {
 # ~~~~~~~~~~~~~~~~~~
 # We can also retrieve the recorded history of the dynamic variables and weights, as well as detected spikes.
 
-events_mm_rec = mm_rec.get("events")
-events_mm_out = mm_out.get("events")
-events_sr_in = sr_in.get("events")
-events_sr_rec = sr_rec.get("events")
-events_wr = wr.get("events")
+tools.save_weights_snapshots(weights_pre_train, weights_post_train)
+tools.process_recordings(duration, nrns_in, nrns_rec, nrns_out)
+tools.process_timing(nest.GetKernelStatus())
+
+events_mm_rec = tools.get_events("multimeter_rec")
+events_mm_out = tools.get_events("multimeter_out")
+events_sr_in = tools.get_events("spike_recorder_in")
+events_sr_rec = tools.get_events("spike_recorder_rec")
+events_wr = tools.get_events("weight_recorder")
 
 # %% ###########################################################################################################
 # Evaluate training error
@@ -713,12 +757,14 @@ events_wr = wr.get("events")
 
 loss, accuracy, recall_errors = evaluate(n_iter, 0)
 
+tools.save_performance({"loss": loss, "accuracy": accuracy, "recall_errors": recall_errors})
+tools.verify()
 # %% ###########################################################################################################
 # Plot results
 # ~~~~~~~~~~~~
 # Then, we plot a series of plots.
 
-do_plotting = True  # if True, plot the results
+do_plotting = False  # if True, plot the results
 
 if not do_plotting:
     exit()
