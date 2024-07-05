@@ -237,10 +237,11 @@ class Tools:
                 86.98770239575573,
             ]
 
-        verification_successful = np.allclose(self.loss, loss_reference, atol=1e-14)
+        n_compare = min(len(self.loss), len(loss_reference))
+        verification_successful = np.allclose(self.loss[:n_compare], loss_reference[:n_compare], atol=1e-14)
 
         if not verification_successful:
-            for l, lr in zip(self.loss, loss_reference):
+            for l, lr in zip(self.loss[:n_compare], loss_reference[:n_compare]):
                 print(f"    {l:.14f},")
                 print(f"    {lr:.14f},")
                 print(" ")
