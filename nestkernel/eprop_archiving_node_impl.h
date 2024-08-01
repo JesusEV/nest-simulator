@@ -54,7 +54,7 @@ EpropArchivingNode< HistEntryT >::register_eprop_connection( const bool is_bsshs
 {
   ++eprop_indegree_;
 
-  const long t_first_entry = is_bsshslm_2020_model ? get_shift() : -delay_rec_out_;
+  const long t_first_entry = is_bsshslm_2020_model ? get_shift() : -get_delay_total();
 
   const auto it_hist = get_update_history( t_first_entry );
 
@@ -80,7 +80,7 @@ EpropArchivingNode< HistEntryT >::write_update_to_history( const long t_previous
     return;
   }
 
-  const long shift = is_bsshslm_2020_model ? get_shift() : -delay_rec_out_;
+  const long shift = is_bsshslm_2020_model ? get_shift() : -get_delay_total();
 
   const auto it_hist_curr = get_update_history( t_current_update + shift );
 
@@ -204,6 +204,47 @@ EpropArchivingNode< HistEntryT >::erase_used_update_history()
     }
   }
 }
+
+
+template < typename HistEntryT >
+void
+EpropArchivingNode< HistEntryT >::update_pre_syn_buffer_multiple_entries( double& z,
+  double& z_current,
+  double& z_previous,
+  std::queue< double >& z_previous_buffer,
+  double t_spike,
+  double t )
+{
+  if ( !z_previous_buffer.empty() )
+  {
+    z = z_previous_buffer.front();
+    z_previous_buffer.pop();
+  }
+
+  if ( t_spike - t > 1 )
+  {
+    z_previous_buffer.push( 0.0 );
+  }
+  else
+  {
+    z_previous_buffer.push( 1.0 );
+  }
+}
+
+template < typename HistEntryT >
+void
+EpropArchivingNode< HistEntryT >::update_pre_syn_buffer_one_entry( double& z,
+  double& z_current,
+  double& z_previous,
+  std::queue< double >& pre_syn_buffer,
+  double t_spike,
+  double t )
+{
+  z = z_previous;
+  z_previous = z_current;
+  z_current = 0.0;
+}
+
 
 } // namespace nest
 

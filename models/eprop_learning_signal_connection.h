@@ -161,6 +161,12 @@ public:
   {
     LearningSignalConnectionEvent ge;
 
+    const long delay_out_rec = t.get_delay_readout_to_recurrent();
+    if ( delay_out_rec != get_delay_steps() )
+    {
+      throw IllegalConnection( "delay == delay_rec_out from target neuron required." );
+    }
+
     s.sends_secondary_event( ge );
     ge.set_sender( s );
     Connection< targetidentifierT >::target_.set_rport( t.handles_test_event( ge, receptor_type ) );

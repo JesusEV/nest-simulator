@@ -131,6 +131,8 @@ steps = {
     "spacing": 50,  # time steps of break between two cues
     "bg_noise": 1050,  # time steps of background noise
     "recall": 150,  # time steps of recall
+    "delay_rec_out": 1,  # time steps of connection delay from recurrent to output neurons
+    "delay_out_rec": 1,  # time steps of broadcast delay of learning signals
 }
 
 steps["cues"] = n_cues * (steps["cue"] + steps["spacing"])  # time steps of all cues
@@ -195,6 +197,8 @@ params_nrn_out = {
     "regular_spike_arrival": False,  # If True, input spikes arrive at end of time step, if False at beginning
     "tau_m": 20.0,  # ms, membrane time constant
     "V_m": 0.0,  # mV, initial value of the membrane voltage
+    "delay_out_rec": duration["delay_out_rec"],  # ms, broadcast delay of learning signals
+    "delay_rec_out": duration["delay_rec_out"],  # ms, connection delay from recurrent to output neurons
 }
 
 params_nrn_reg = {
@@ -213,6 +217,8 @@ params_nrn_reg = {
     "V_m": 0.0,
     "V_th": 0.6,  # mV, spike threshold membrane voltage
     "kappa": 0.97,  # low-pass filter of the eligibility trace
+    "delay_out_rec": duration["delay_out_rec"],  # ms, broadcast delay of learning signals
+    "delay_rec_out": duration["delay_rec_out"],  # ms, connection delay from recurrent to output neurons
 }
 
 params_nrn_ad = {
@@ -233,6 +239,8 @@ params_nrn_ad = {
     "V_m": 0.0,
     "V_th": 0.6,
     "kappa": 0.97,
+    "delay_out_rec": duration["delay_out_rec"],  # ms, broadcast delay of learning signals
+    "delay_rec_out": duration["delay_rec_out"],  # ms, connection delay from recurrent to output neurons
 }
 
 params_nrn_ad["adapt_beta"] = 1.7 * (
@@ -388,10 +396,11 @@ params_syn_rec["weight"] = weights_rec_rec
 
 params_syn_out = params_syn_base.copy()
 params_syn_out["weight"] = weights_rec_out
+params_syn_out["delay"] = duration["delay_rec_out"]
 
 params_syn_feedback = {
     "synapse_model": "eprop_learning_signal_connection",
-    "delay": duration["step"],
+    "delay": duration["delay_out_rec"],
     "weight": weights_out_rec,
 }
 

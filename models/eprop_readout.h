@@ -302,7 +302,8 @@ private:
 
   void compute_gradient( const long t_spike,
     const long t_spike_previous,
-    double& z_previous_buffer,
+    std::queue< double >& z_previous_buffer,
+    double& z_previous,
     double& z_bar,
     double& e_bar,
     double& epsilon,
@@ -313,6 +314,7 @@ private:
   long get_shift() const override;
   bool is_eprop_recurrent_node() const override;
   long get_eprop_isi_trace_cutoff() override;
+  long get_delay_total() const override;
 
   //! Compute the error signal based on the mean-squared error loss.
   void compute_error_signal_mean_squared_error( const long lag );
@@ -350,6 +352,12 @@ private:
     //! Number of time steps integrated between two consecutive spikes is equal to the minimum between
     //! eprop_isi_trace_cutoff_ and the inter-spike distance.
     long eprop_isi_trace_cutoff_;
+
+    //! Connection delay from recurrent to output neurons.
+    long delay_rec_out_;
+
+    //! Broadcast delay of learning signals.
+    long delay_out_rec_;
 
     //! Default constructor.
     Parameters_();
@@ -393,6 +401,9 @@ private:
 
     //! Set the state variables.
     void set( const DictionaryDatum&, const Parameters_&, double, Node* );
+
+    //! Queue to hold last delay_out_rec error signals.
+    std::deque< double > error_signal_deque_;
   };
 
   //! Structure of buffers.
@@ -492,14 +503,35 @@ eprop_readout::get_eprop_isi_trace_cutoff()
   return P_.eprop_isi_trace_cutoff_;
 }
 
+inline long
+eprop_readout::get_delay_total() const
+{
+  return P_.delay_rec_out_;
+}
+
 inline size_t
-eprop_readout::handles_test_event( SpikeEvent&, size_t receptor_type )
+eprop_readout::handles_test_event( SpikeEvent& e, size_t receptor_type )
 {
   if ( receptor_type != 0 )
   {
     throw UnknownReceptorType( receptor_type, get_name() );
   }
 
+  // To perform a consistency check on the delay parameter d_out_rec between recurrent
+  // neurons and output neurons, the recurrent neurons send a test event with a delay
+  // specified by d_rec_out. Upon receiving the test event from the recurrent neuron,
+  // the output neuron checks if the delay with which the event was received matches
+  // its own specified delay parameter d_rec_out.
+
+  // ensure that the spike event was not sent by a proxy node.
+  if ( e.get_sender().get_node_id() != 0 )
+  {
+    if ( e.get_delay_steps() != P_.delay_rec_out_ )
+    {
+      throw IllegalConnection(
+        "delay_rec_out from recurrent neuron equal to delay_rec_out from readout neuron required." );
+    }
+  }
   return 0;
 }
 

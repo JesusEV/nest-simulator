@@ -264,17 +264,21 @@ private:
 
   void compute_gradient( const long t_spike,
     const long t_spike_previous,
-    double& z_previous_buffer,
+    std::queue< double >& z_previous_buffer,
+    double& z_previous,    
     double& z_bar,
     double& e_bar,
     double& epsilon,
     double& weight,
     const CommonSynapseProperties& cp,
-    WeightOptimizer* optimizer ) override;
+    WeightOptimizer* optimizer ) override;    
 
   long get_shift() const override;
   bool is_eprop_recurrent_node() const override;
   long get_eprop_isi_trace_cutoff() override;
+  long get_delay_total() const override;
+  long get_delay_recurrent_to_readout() const override;
+  long get_delay_readout_to_recurrent() const override;    
 
   //! Compute the surrogate gradient.
   double ( eprop_iaf_psc_delta::*compute_surrogate_gradient )( double, double, double, double, double, double );
@@ -342,6 +346,15 @@ private:
     //! Number of time steps integrated between two consecutive spikes is equal to the minimum between
     //! eprop_isi_trace_cutoff_ and the inter-spike distance.
     long eprop_isi_trace_cutoff_;
+
+    //! Connection delay from recurrent to output neurons.
+    long delay_rec_out_;
+
+    //! Broadcast delay of learning signals.
+    long delay_out_rec_;
+
+    //! Sum of broadcast delay of learning signals and connection delay from recurrent to output neurons.
+    long delay_total_;     
 
     Parameters_(); //!< Sets default parameter values
 
@@ -474,10 +487,35 @@ eprop_iaf_psc_delta::get_eprop_isi_trace_cutoff()
   return P_.eprop_isi_trace_cutoff_;
 }
 
+inline long
+eprop_iaf_psc_delta::get_delay_total() const
+{
+  return P_.delay_total_;
+}
+
+inline long
+eprop_iaf_psc_delta::get_delay_recurrent_to_readout() const
+{
+  return P_.delay_rec_out_;
+}
+
+inline long
+eprop_iaf_psc_delta::get_delay_readout_to_recurrent() const
+{
+  return P_.delay_out_rec_;
+}
+
 inline size_t
 nest::eprop_iaf_psc_delta::send_test_event( Node& target, size_t receptor_type, synindex, bool )
 {
   SpikeEvent e;
+
+  // To perform a consistency check on the delay parameter d_out_rec between recurrent
+  // neurons and output neurons, the recurrent neurons send a test event with a delay
+  // specified by d_rec_out. Upon receiving the test event from the recurrent neuron,
+  // the output neuron checks if the delay with which the event was received matches 
+  // its own specified delay parameter d_rec_out.
+  e.set_delay_steps(P_.delay_rec_out_);
   e.set_sender( *this );
   return target.handles_test_event( e, receptor_type );
 }

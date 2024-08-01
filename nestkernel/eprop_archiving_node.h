@@ -157,6 +157,24 @@ public:
   //! the first update.
   void erase_used_eprop_history( const long eprop_isi_trace_cutoff );
 
+  //! Update multiple entries in the presynaptic buffer. This function is used when the total synaptic delay
+  //! is greater than one.
+  void update_pre_syn_buffer_multiple_entries( double& z,
+    double& z_current,
+    double& z_previous,
+    std::queue< double >& z_previous_buffer,
+    double t_spike,
+    double t );
+
+  //! Update one entry in the presynaptic buffer. This function is used when the total synaptic delay
+  //! is equal one.
+  void update_pre_syn_buffer_one_entry( double& z,
+    double& z_current,
+    double& z_previous,
+    std::queue< double >& z_previous_buffer,
+    double t_spike,
+    double t );
+
 protected:
   //! Number of incoming eprop synapses
   size_t eprop_indegree_;
