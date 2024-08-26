@@ -105,8 +105,8 @@ class Tools:
         target_min = min(target_nrns.tolist())
         target_max = max(target_nrns.tolist())
 
-        condition1 = (df.sender > sender_min) & (df.sender <= sender_max)
-        condition2 = (df.targets > target_min) & (df.targets <= target_max)
+        condition1 = (df.sender >= sender_min) & (df.sender <= sender_max)
+        condition2 = (df.targets >= target_min) & (df.targets <= target_max)
 
         df_sub = df[condition1 & condition2]
 
