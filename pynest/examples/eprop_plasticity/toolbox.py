@@ -122,13 +122,15 @@ class Tools:
         df_sub.to_csv(f"{self.args.recordings_dir}/{recorder_label}{label}.csv", index=False)
 
     def process_recordings(self, duration, nrns_in, nrns_rec, nrns_out):
-        recorder_labels = ["multimeter_out", "spike_recorder_in", "weight_recorder"]
-        if "evidence" in self.parser.prog:
-            nrn_types = ["reg", "ad"]
-        else:
-            nrn_types = ["rec"]
-        for nrn_type in nrn_types:
-            recorder_labels.extend([f"multimeter_{nrn_type}", f"spike_recorder_{nrn_type}"])
+        recorder_labels = ["multimeter_out"]
+        if self.args.record_dynamics:
+            recorder_labels += ["spike_recorder_in", "weight_recorder"]
+            if "evidence" in self.parser.prog:
+                nrn_types = ["reg", "ad"]
+            else:
+                nrn_types = ["rec"]
+            for nrn_type in nrn_types:
+                recorder_labels.extend([f"multimeter_{nrn_type}", f"spike_recorder_{nrn_type}"])
 
         for recorder_label in recorder_labels:
             save_file = f"{self.args.recordings_dir}/{recorder_label}"
