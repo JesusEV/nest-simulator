@@ -12,9 +12,16 @@ class Tools:
         self.timing = []
         self.parser = parser
         self.args = parser.parse_args()
+        self.remove_recordings()
 
     def time(self):
         self.timing.append(time.time())
+
+    def remove_recordings(self):
+        for file in os.listdir(self.args.recordings_dir):
+            file_path = os.path.join(self.args.recordings_dir, file)
+            if os.path.isfile(file_path) and (file_path.endswith(".csv") or file_path.endswith(".dat")):
+                os.remove(file_path)
 
     def select(self, weights, sign):
         condition = weights >= 0.0 if sign >= 0.0 else weights < 0.0
