@@ -671,7 +671,7 @@ y_target = np.argmax(np.mean(target_signal, axis=3), axis=0)
 accuracy = np.mean((y_target == y_prediction), axis=1)
 recall_errors = 1.0 - accuracy
 
-tools.save_performance({"loss": loss, "accuracy": accuracy, "recall_errors": recall_errors})
+tools.save_performance({"loss": loss, "accuracy": accuracy, "error": recall_errors})
 tools.verify()
 # %% ###########################################################################################################
 # Plot results

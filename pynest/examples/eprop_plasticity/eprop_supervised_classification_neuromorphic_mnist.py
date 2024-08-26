@@ -757,7 +757,7 @@ events_wr = tools.get_events("weight_recorder")
 
 loss, accuracy, recall_errors = evaluate(n_iter, 0)
 
-tools.save_performance({"loss": loss, "accuracy": accuracy, "recall_errors": recall_errors})
+tools.save_performance({"loss": loss, "accuracy": accuracy, "error": recall_errors})
 tools.verify()
 # %% ###########################################################################################################
 # Plot results
