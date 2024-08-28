@@ -105,20 +105,21 @@ except Exception:
 parser = argparse.ArgumentParser()
 
 parser.add_argument("--apply_dales_law", type=str.lower, nargs="*", default=[])
-parser.add_argument("--batch_size", type=int, default=1)
+parser.add_argument("--group_size", type=int, default=32)
 parser.add_argument("--c_reg", type=float, default=2.0)
 parser.add_argument("--cutoff", type=int, default=100)
 parser.add_argument("--eta", type=float, default=5e-3)
 parser.add_argument("--kappa", type=float, default=0.99)
-parser.add_argument("--n_iter", type=int, default=5)
+parser.add_argument("--n_iter_train", type=int, default=4)
+parser.add_argument("--n_iter_test", type=int, default=1)
 parser.add_argument("--nvp", type=int, default=1)
 parser.add_argument("--prevent_weight_sign_change", type=str.lower, nargs="*", default=[])
+parser.add_argument('--record_dynamics', action=argparse.BooleanOptionalAction,  default=True)
 parser.add_argument("--recordings_dir", type=str, default="./")
 parser.add_argument("--seed", type=int, default=1)
 parser.add_argument("--surrogate_gradient", type=str.lower, default="piecewise_linear")
 parser.add_argument("--surrogate_gradient_beta", type=float, default=1.0)
 parser.add_argument("--surrogate_gradient_gamma", type=float, default=0.3)
-parser.add_argument("--record_dynamics", type=bool, default=False)
 
 args = parser.parse_args()
 
@@ -143,8 +144,10 @@ np.random.seed(rng_seed)  # fix numpy random seed
 # performance metrics, such as average accuracy and mean error. Increasing the number of iterations enhances
 # learning performance up to the point where overfitting occurs.
 
-group_size = args.batch_size  # number of instances over which to evaluate the learning performance
-n_iter = args.n_iter  # number of iterations
+group_size = args.group_size  # number of instances over which to evaluate the learning performance
+n_iter_train = args.n_iter_train  # number of iterations, 200 for convergence
+n_iter_test = args.n_iter_test  # number of iterations, 200 for convergence
+n_iter = n_iter_train + n_iter_test  # total number of iterations
 test_every = 10  # cyclical number of training iterations after which to test the performance
 
 steps = {}
@@ -712,7 +715,7 @@ for iteration in range(n_iter):
     t_start_iteration = iteration * duration["evaluation_group"]
     t_end_iteration = t_start_iteration + duration["evaluation_group"]
 
-    if iteration != 0 and iteration % test_every == 0:
+    if iteration >= n_iter_train:
         loader, eta = data_loader_test, eta_test
     else:
         loader, eta = data_loader_train, eta_train

@@ -114,12 +114,13 @@ parser.add_argument("--loss", type=str, default="cross_entropy")
 parser.add_argument("--n_iter", type=int, default=5)
 parser.add_argument("--nvp", type=int, default=1)
 parser.add_argument("--prevent_weight_sign_change", type=str.lower, nargs="*", default=[])
+parser.add_argument('--record_dynamics', action=argparse.BooleanOptionalAction,  default=True)
 parser.add_argument("--recordings_dir", type=str, default="./")
+parser.add_argument('--reset_neurons', action=argparse.BooleanOptionalAction,  default=True)
 parser.add_argument("--seed", type=int, default=1)
 parser.add_argument("--surrogate_gradient", type=str.lower, default="piecewise_linear")
 parser.add_argument("--surrogate_gradient_beta", type=float, default=1.0)
 parser.add_argument("--surrogate_gradient_gamma", type=float, default=0.3)
-parser.add_argument("--record_dynamics", type=bool, default=False)
 
 args = parser.parse_args()
 
@@ -189,7 +190,7 @@ duration.update({key: value * duration["step"] for key, value in steps.items()})
 
 params_setup = {
     "eprop_learning_window": duration["learning_window"],
-    "eprop_reset_neurons_on_update": True,  # if True, reset dynamic variables at start of each update interval
+    "eprop_reset_neurons_on_update": args.reset_neurons,  # if True, reset dynamic variables at start of each update interval
     "eprop_update_interval": duration["sequence"],  # ms, time interval for updating the synaptic weights
     "print_time": False,  # if True, print time progress bar during simulation, set False if run as code cell
     "resolution": duration["step"],

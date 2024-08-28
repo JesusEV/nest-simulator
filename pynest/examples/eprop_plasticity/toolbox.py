@@ -229,6 +229,14 @@ class Tools:
                 0.49169665763603,
                 0.45463618073378,
             ]
+        elif file_name == "eprop_supervised_classification_neuromorphic_mnist_bsshslm_2020.py":
+            loss_reference = [
+                2.29905872344452,
+                2.31039108412163,
+                2.29426963047102,
+                2.29407265212433,
+                2.29758026605794,
+            ]             
         elif file_name == "eprop_supervised_regression_lemniscate_bsshslm_2020.py":
             loss_reference = [
                 314.30442538643001,
