@@ -107,6 +107,7 @@ parser.add_argument("--c_reg_delta", type=float, default=2.0)
 parser.add_argument("--cutoff", type=int, default=100)
 parser.add_argument("--eta", type=float, default=1e-4)
 parser.add_argument("--kappa", type=float, default=0.97)
+parser.add_argument("--kappa_reg", type=float, default=0.97)
 parser.add_argument("--n_iter", type=int, default=5)
 parser.add_argument("--nvp", type=int, default=1)
 parser.add_argument("--prevent_weight_sign_change", type=str.lower, nargs="*", default=[])
@@ -219,8 +220,8 @@ params_nrn_rec = {
     "f_target": 10.0,  # spikes/s, target firing rate for firing rate regularization
     "gamma": args.surrogate_gradient_gamma,  # height scaling of the pseudo-derivative
     "I_e": 0.0,
-    "kappa": 0.97,  # low-pass filter of the eligibility trace
-    "kappa_reg": 0.97,  # low-pass filter of the firing rate for regularization
+    "kappa": args.kappa,  # low-pass filter of the eligibility trace
+    "kappa_reg": args.kappa_reg,  # low-pass filter of the firing rate for regularization
     "regular_spike_arrival": False,
     "surrogate_gradient_function": args.surrogate_gradient,  # surrogate gradient / pseudo-derivative function
     "t_ref": 0.0,  # ms, duration of refractory period
