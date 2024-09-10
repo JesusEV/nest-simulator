@@ -89,6 +89,7 @@ nest::eprop_iaf_psc_delta::Parameters_::Parameters_()
   , kappa_( 0.97 )
   , kappa_reg_( 0.97 )
   , eprop_isi_trace_cutoff_( 1000.0 )
+  , max_idle_time_( 10000.0 )
 {
 }
 
@@ -100,6 +101,7 @@ nest::eprop_iaf_psc_delta::State_::State_()
   , learning_signal_( 0.0 )
   , surrogate_gradient_( 0.0 )
   , z_( 0.0 )
+  , t_last_spike_( 0.0 )
 {
 }
 
@@ -181,6 +183,7 @@ nest::eprop_iaf_psc_delta::Parameters_::set( const DictionaryDatum& d, Node* nod
   updateValueParam< double >( d, names::kappa, kappa_, node );
   updateValueParam< double >( d, names::kappa_reg, kappa_reg_, node );
   updateValueParam< double >( d, names::eprop_isi_trace_cutoff, eprop_isi_trace_cutoff_, node );
+  updateValueParam< double >( d, names::max_idle_time, max_idle_time_, node );
 
   if ( V_reset_ >= V_th_ )
   {
@@ -327,6 +330,7 @@ nest::eprop_iaf_psc_delta::pre_run_hook()
 
   V_.RefractoryCounts_ = Time( Time::ms( P_.t_ref_ ) ).get_steps();
   // since t_ref_ >= 0, this can only fail in error
+  V_.max_idle_time_steps_ = Time( Time::ms( P_.max_idle_time_ ) ).get_steps();
   assert( V_.RefractoryCounts_ >= 0 );
 }
 
@@ -391,7 +395,9 @@ nest::eprop_iaf_psc_delta::update( Time const& origin, const long from, const lo
     double z = 0.0; // spiking variable
 
     // threshold crossing
-    if ( S_.y3_ >= P_.V_th_ )
+    const long time_since_last_spike = t - S_.t_last_spike_;
+    const bool idle_neuron = time_since_last_spike > V_.max_idle_time_steps_;
+    if ( ( S_.y3_ >= P_.V_th_ ) or idle_neuron )
     {
       S_.r_ = V_.RefractoryCounts_;
       S_.y3_ = P_.V_reset_;
@@ -400,6 +406,7 @@ nest::eprop_iaf_psc_delta::update( Time const& origin, const long from, const lo
       kernel().event_delivery_manager.send( *this, se, lag );
 
       z = 1.0;
+      S_.t_last_spike_ = t;
     }
 
     append_new_eprop_history_entry( t );
@@ -483,8 +490,7 @@ eprop_iaf_psc_delta::compute_gradient( const long t_spike,
 
   const EpropSynapseCommonProperties& ecp = static_cast< const EpropSynapseCommonProperties& >( cp );
   const auto optimize_each_step = ( *ecp.optimizer_cp_ ).optimize_each_step_;
-
-  auto eprop_hist_it = get_eprop_history( t_spike_previous - 1 );
+  auto eprop_hist_it = get_eprop_history_optimized( t_spike_previous - 1 );
 
   const long t_compute_until = std::min( t_spike_previous + V_.eprop_isi_trace_cutoff_steps_, t_spike );
 

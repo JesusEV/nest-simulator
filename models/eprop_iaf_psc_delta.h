@@ -349,6 +349,9 @@ private:
     //! Time interval from the previous spike until the cutoff of e-prop update integration between two spikes (ms).
     double eprop_isi_trace_cutoff_;
 
+    //! Maximum time without a spike before neuron is considered silent and it is forced to fire.
+    double max_idle_time_;
+
     Parameters_(); //!< Sets default parameter values
 
     void get( DictionaryDatum& ) const; //!< Store current values in dictionary
@@ -385,6 +388,10 @@ private:
 
     //! Binary spike variable - 1.0 if the neuron has spiked in the previous time step and 0.0 otherwise.
     double z_;
+
+    //! Time of the last spike.
+    double t_last_spike_;
+
 
     State_(); //!< Default initialization
 
@@ -435,6 +442,8 @@ private:
     //! Time steps from the previous spike until the cutoff of e-prop update integration between two spikes.
     long eprop_isi_trace_cutoff_steps_;
 
+    //! Maximum time without a spike before neuron is considered silent and it is forced to fire.
+    long max_idle_time_steps_;
   };
 
   // Access functions for UniversalDataLogger -------------------------------

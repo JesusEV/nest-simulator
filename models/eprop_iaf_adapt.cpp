@@ -88,6 +88,7 @@ eprop_iaf_adapt::Parameters_::Parameters_()
   , kappa_( 0.97 )
   , kappa_reg_( 0.97 )
   , eprop_isi_trace_cutoff_( 1000.0 )
+  , max_idle_time_( 10000.0 )
 {
 }
 
@@ -101,6 +102,7 @@ eprop_iaf_adapt::State_::State_()
   , v_m_( 0.0 )
   , z_( 0.0 )
   , z_in_( 0.0 )
+  , t_last_spike_( 0.0 )
 {
 }
 
@@ -172,6 +174,7 @@ eprop_iaf_adapt::Parameters_::set( const DictionaryDatum& d, Node* node )
   updateValueParam< double >( d, names::kappa, kappa_, node );
   updateValueParam< double >( d, names::kappa_reg, kappa_reg_, node );
   updateValueParam< double >( d, names::eprop_isi_trace_cutoff, eprop_isi_trace_cutoff_, node );
+  updateValueParam< double >( d, names::max_idle_time, max_idle_time_, node );
 
   if ( adapt_beta_ < 0 )
   {
@@ -299,6 +302,7 @@ eprop_iaf_adapt::pre_run_hook()
 
   V_.RefractoryCounts_ = Time( Time::ms( P_.t_ref_ ) ).get_steps();
   V_.eprop_isi_trace_cutoff_steps_ = Time( Time::ms( P_.eprop_isi_trace_cutoff_ ) ).get_steps();
+  V_.max_idle_time_steps_ = Time( Time::ms( P_.max_idle_time_ ) ).get_steps();
 
   compute_surrogate_gradient_ = select_surrogate_gradient( P_.surrogate_gradient_function_ );
 
@@ -354,13 +358,17 @@ eprop_iaf_adapt::update( Time const& origin, const long from, const long to )
     S_.surrogate_gradient_ =
       ( this->*compute_surrogate_gradient_ )( S_.r_, S_.v_m_, S_.v_th_adapt_, P_.beta_, P_.gamma_ );
 
-    if ( S_.v_m_ >= S_.v_th_adapt_ and S_.r_ == 0 )
+    const long time_since_last_spike = t - S_.t_last_spike_;
+    const bool idle_neuron = time_since_last_spike > V_.max_idle_time_steps_;
+    if ( ( S_.v_m_ >= S_.v_th_adapt_ and S_.r_ == 0 ) or idle_neuron )
     {
       SpikeEvent se;
       kernel().event_delivery_manager.send( *this, se, lag );
 
       S_.z_ = 1.0;
       S_.r_ = V_.RefractoryCounts_;
+
+      S_.t_last_spike_ = t;
     }
 
     append_new_eprop_history_entry( t );
@@ -439,8 +447,7 @@ eprop_iaf_adapt::compute_gradient( const long t_spike,
 
   const EpropSynapseCommonProperties& ecp = static_cast< const EpropSynapseCommonProperties& >( cp );
   const auto optimize_each_step = ( *ecp.optimizer_cp_ ).optimize_each_step_;
-
-  auto eprop_hist_it = get_eprop_history( t_spike_previous - 1 );
+  auto eprop_hist_it = get_eprop_history_optimized( t_spike_previous - 1 );
 
   const long t_compute_until = std::min( t_spike_previous + V_.eprop_isi_trace_cutoff_steps_, t_spike );
 

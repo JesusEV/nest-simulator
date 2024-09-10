@@ -349,7 +349,7 @@ eprop_readout::compute_gradient( const long t_spike,
   const EpropSynapseCommonProperties& ecp = static_cast< const EpropSynapseCommonProperties& >( cp );
   const auto optimize_each_step = ( *ecp.optimizer_cp_ ).optimize_each_step_;
 
-  auto eprop_hist_it = get_eprop_history( t_spike_previous - 1 );
+  auto eprop_hist_it = get_eprop_history_optimized( t_spike_previous - 1 );
 
   const long t_compute_until = std::min( t_spike_previous + V_.eprop_isi_trace_cutoff_steps_, t_spike );
 
