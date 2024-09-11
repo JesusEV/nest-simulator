@@ -115,8 +115,9 @@ parser.add_argument('--record_dynamics', action=argparse.BooleanOptionalAction, 
 parser.add_argument("--recordings_dir", type=str, default="./")
 parser.add_argument("--seed", type=int, default=1)
 parser.add_argument("--surrogate_gradient", type=str.lower, default="piecewise_linear")
-parser.add_argument("--surrogate_gradient_beta", type=float, default=1.0)
-parser.add_argument("--surrogate_gradient_gamma", type=float, default=0.3)
+parser.add_argument("--surrogate_gradient_beta", type=float, default=33.3) # 1.0
+parser.add_argument("--surrogate_gradient_gamma", type=float, default=10.0) # 0.3
+parser.add_argument("--neuron_model", type=str.lower, default="eprop_iaf")
 
 args = parser.parse_args()
 
@@ -199,7 +200,7 @@ n_in = 100  # number of input neurons
 n_rec = 100  # number of recurrent neurons
 n_out = 1  # number of readout neurons
 
-model_nrn_rec = "eprop_iaf"
+model_nrn_rec = args.neuron_model
 
 params_nrn_out = {
     "C_m": 1.0,  # pF, membrane capacitance - takes effect only if neurons get current input (here not the case)
@@ -229,6 +230,9 @@ params_nrn_rec = {
     "V_m": 0.0,
     "V_th": 0.03,  # mV, spike threshold membrane voltage
 }
+
+if model_nrn_rec == "eprop_iaf_adapt":
+    params_nrn_rec["adapt_beta"] = 0.0  # adaptation scaling
 
 if model_nrn_rec == "eprop_iaf_psc_delta":
     del params_nrn_rec["regular_spike_arrival"]
