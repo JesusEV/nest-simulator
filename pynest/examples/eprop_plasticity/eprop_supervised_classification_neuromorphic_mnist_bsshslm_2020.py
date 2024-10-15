@@ -125,6 +125,9 @@ parser.add_argument("--surrogate_gradient", type=str.lower, default="piecewise_l
 parser.add_argument("--surrogate_gradient_beta", type=float, default=1.0)
 parser.add_argument("--surrogate_gradient_gamma", type=float, default=0.3)
 
+parser.add_argument("--tau_m_out", type=float, default=100.0)
+parser.add_argument("--tau_m_rec", type=float, default=30.0)
+
 args = parser.parse_args()
 tools = Tools(parser)
 
@@ -225,7 +228,7 @@ params_nrn_out = {
     "I_e": 0.0,  # pA, external current input
     "loss": "cross_entropy",  # loss function
     "regular_spike_arrival": False,  # If True, input spikes arrive at end of time step, if False at beginning
-    "tau_m": 100.0,  # ms, membrane time constant
+    "tau_m": args.tau_m_out,  # ms, membrane time constant
     "V_m": 0.0,  # mV, initial value of the membrane voltage
 }
 
@@ -240,7 +243,7 @@ params_nrn_rec = {
     "regular_spike_arrival": True,
     "surrogate_gradient_function": args.surrogate_gradient,  # surrogate gradient / pseudo-derivative function
     "t_ref": 0.0,  # ms, duration of refractory period
-    "tau_m": 30.0,
+    "tau_m": args.tau_m_rec,
     "V_m": 0.0,
     "V_th": 0.6,  # mV, spike threshold membrane voltage
 }

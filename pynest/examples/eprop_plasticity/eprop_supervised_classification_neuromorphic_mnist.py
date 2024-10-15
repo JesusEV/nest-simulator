@@ -128,6 +128,11 @@ parser.add_argument("--surrogate_gradient_beta", type=float, default=1.7)
 parser.add_argument("--surrogate_gradient_gamma", type=float, default=0.5)
 parser.add_argument("--neuron_model", type=str.lower, default="eprop_iaf")
 
+parser.add_argument("--tau_m_out", type=float, default=100.0)
+parser.add_argument("--tau_m_rec", type=float, default=30.0)
+parser.add_argument("--V_th", type=float, default=0.5)
+parser.add_argument("--V_reset", type=float, default=-0.5)
+
 args = parser.parse_args()
 
 tools = Tools(parser)
@@ -224,7 +229,7 @@ params_nrn_out = {
     "E_L": 0.0,  # mV, leak / resting membrane potential
     "eprop_isi_trace_cutoff": args.cutoff,  # cutoff of integration of eprop trace between spikes
     "I_e": 0.0,  # pA, external current input
-    "tau_m": 100.0,  # ms, membrane time constant
+    "tau_m": args.tau_m_out,  # ms, membrane time constant
     "V_m": 0.0,  # mV, initial value of the membrane voltage
 }
 
@@ -241,7 +246,7 @@ params_nrn_rec = {
     "kappa_reg": args.kappa_reg,  # low-pass filter of the firing rate for regularization
     "surrogate_gradient_function": args.surrogate_gradient,  # surrogate gradient / pseudo-derivative function
     "t_ref": 0.0,  # ms, duration of refractory period
-    "tau_m": 30.0,
+    "tau_m": args.tau_m_rec,
     "V_m": 0.0,
     "V_th": 0.6,  # mV, spike threshold membrane voltage
 }
@@ -250,9 +255,9 @@ scale_factor = 1.0 - params_nrn_rec["kappa"]  # factor for rescaling due to remo
 params_nrn_rec["c_reg"] /= scale_factor**2
 
 if args.neuron_model in ["eprop_iaf_psc_delta", "eprop_iaf_psc_delta_adapt"]:
-    params_nrn_rec["V_reset"] = -0.5  # mV, reset membrane voltage
+    params_nrn_rec["V_reset"] = args.V_reset  # mV, reset membrane voltage
     params_nrn_rec["c_reg"] = args.c_reg_delta / duration["sequence"] / scale_factor**2
-    params_nrn_rec["V_th"] = 0.5
+    params_nrn_rec["V_th"] = args.V_th
 
 ####################
 
