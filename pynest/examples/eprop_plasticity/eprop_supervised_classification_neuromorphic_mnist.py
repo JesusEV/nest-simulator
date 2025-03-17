@@ -818,8 +818,6 @@ events_sr_rec = sr_rec.get("events")
 events_wr = wr.get("events")
 
 
-loss, accuracy, recall_errors = evaluate(n_iter, 0)
-
 # %% ###########################################################################################################
 # Plot results
 # ~~~~~~~~~~~~

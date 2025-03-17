@@ -388,15 +388,17 @@ private:
 
   void update( Time const&, const long, const long ) override;
 
-  void compute_gradient( const long t_spike,
-    const long t_spike_previous,
-    double& z_previous,
-    double& z_bar,
-    double& e_bar,
-    double& epsilon,
-    double& weight,
-    const CommonSynapseProperties& cp,
-    WeightOptimizer* optimizer ) override;
+  void compute_gradient( const long,
+    const long,
+    std::queue< double >&,
+    double&,
+    double&,
+    double&,
+    double&,
+    double&,
+    double&,
+    const CommonSynapseProperties&,
+    WeightOptimizer* ) override;
 
   long get_shift() const override;
   bool is_eprop_recurrent_node() const override;

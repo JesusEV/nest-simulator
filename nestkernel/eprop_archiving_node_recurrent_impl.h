@@ -184,11 +184,15 @@ EpropArchivingNodeRecurrent< hist_shift_required >::write_learning_signal_to_his
     return;
   }
 
-  long shift = delay_rec_out_ + delay_out_rec_;
+  long shift = delay_out_rec_;
 
   if constexpr ( hist_shift_required )
   {
-    shift += delay_out_norm_;
+    shift += delay_rec_out_ + delay_out_norm_;
+  }
+  else
+  {
+    shift += get_delay_total();
   }
 
 

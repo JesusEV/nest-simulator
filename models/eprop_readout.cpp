@@ -114,8 +114,7 @@ eprop_readout::Parameters_::get( DictionaryDatum& d ) const
   def< double >( d, names::I_e, I_e_ );
   def< double >( d, names::tau_m, tau_m_ );
   def< double >( d, names::V_min, V_min_ + E_L_ );
-  def< long >( d, names::eprop_isi_trace_cutoff, eprop_isi_trace_cutoff_ );
-
+  def< double >( d, names::eprop_isi_trace_cutoff, eprop_isi_trace_cutoff_ );
   double delay_rec_out_ms = Time( Time::step( delay_rec_out_ ) ).get_ms();
   def< double >( d, names::delay_rec_out, delay_rec_out_ms );
   double delay_out_rec_ms = Time( Time::step( delay_out_rec_ ) ).get_ms();
@@ -135,7 +134,7 @@ eprop_readout::Parameters_::set( const DictionaryDatum& d, Node* node )
   updateValueParam< double >( d, names::C_m, C_m_, node );
   updateValueParam< double >( d, names::I_e, I_e_, node );
   updateValueParam< double >( d, names::tau_m, tau_m_, node );
-  updateValueParam< long >( d, names::eprop_isi_trace_cutoff, eprop_isi_trace_cutoff_, node );
+  updateValueParam< double >( d, names::eprop_isi_trace_cutoff, eprop_isi_trace_cutoff_, node );
 
   double delay_rec_out_ms = Time( Time::step( delay_rec_out_ ) ).get_ms();
   updateValueParam< double >( d, names::delay_rec_out, delay_rec_out_ms, node );
@@ -236,7 +235,7 @@ eprop_readout::pre_run_hook()
   {
     for ( long t = -P_.delay_rec_out_; t < 0; ++t )
     {
-      emplace_new_eprop_history_entry( t );
+      append_new_eprop_history_entry( t );
     }
 
     for ( int i = 0; i < P_.delay_out_rec_ - 1; i++ )
@@ -371,17 +370,9 @@ eprop_readout::compute_gradient( const long t_spike,
 
   for ( long t = t_spike_previous; t < t_compute_until; ++t, ++eprop_hist_it )
   {
-    z = z_previous;
-    z_previous = z_current;
-    z_current = 0.0;
-
-    L = eprop_hist_it->error_signal_;
-
-    z_bar = V_.P_v_m_ * z_bar + V_.P_z_in_ * z;
-
-    if ( optimize_each_step )
+    if ( P_.delay_rec_out_ > 1 )
     {
-      z = z_previous_buffer.front();
+      z = z_previous_buffer.front(); // <<-------------------------
       update_pre_syn_buffer_multiple_entries( z, z_current, z_previous, z_previous_buffer, t_spike, t );
     }
     else
@@ -391,7 +382,7 @@ eprop_readout::compute_gradient( const long t_spike,
 
     L = eprop_hist_it->error_signal_;
 
-    z_bar = V_.P_v_m_ * z_bar + V_.P_z_in_ * z;
+    z_bar = V_.P_v_m_ * z_bar + z;
 
     if ( optimize_each_step )
     {

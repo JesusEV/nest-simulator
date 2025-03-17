@@ -307,7 +307,7 @@ References
        https://doi.org/10.1038/s41467-020-17236-y
 
 .. [2] Korcsak-Gorzo A, Stapmanns J, Espinoza Valverde JA, Plesser HE,
-       Dahmen D, Bolten M, Van Albada SJ, Diesmann M. Event-based
+       Dahmen D, Bolten M, Van Albada SJ*, Diesmann M*. Event-based
        implementation of eligibility propagation (in preparation)
 
 .. [3] Neftci EO, Mostafa H, Zenke F (2019). Surrogate Gradient Learning in
@@ -400,33 +400,24 @@ private:
 
   void update( Time const&, const long, const long ) override;
 
-  void compute_gradient( const long t_spike,
-    const long t_spike_previous,
-    double& z_previous,
-    double& z_bar,
-    double& e_bar,
-    double& epsilon,
-    double& weight,
-    const CommonSynapseProperties& cp,
-    WeightOptimizer* optimizer ) override;
-
-  void compute_gradient( const long t_spike,
-    const long t_spike_previous,
-    std::queue< double >& z_previous_buffer,
-    double& z_previous,    
-    double& z_bar,
-    double& e_bar,
-    double& epsilon,
-    double& weight,
-    const CommonSynapseProperties& cp,
-    WeightOptimizer* optimizer ) override;    
+  void compute_gradient( const long,
+    const long,
+    std::queue< double >&,
+    double&,
+    double&,
+    double&,
+    double&,
+    double&,
+    double&,
+    const CommonSynapseProperties&,
+    WeightOptimizer* ) override;
 
   long get_shift() const override;
   bool is_eprop_recurrent_node() const override;
   long get_eprop_isi_trace_cutoff() const override;
   long get_delay_total() const override;
   long get_delay_recurrent_to_readout() const override;
-  long get_delay_readout_to_recurrent() const override;    
+  long get_delay_readout_to_recurrent() const override;
 
   //! Map for storing a static set of recordables.
   friend class RecordablesMap< eprop_iaf_psc_delta >;
@@ -495,7 +486,7 @@ private:
     long delay_out_rec_;
 
     //! Sum of broadcast delay of learning signals and connection delay from recurrent to output neurons.
-    long delay_total_;     
+    long delay_total_;
 
     //! Default constructor.
     Parameters_();
@@ -613,18 +604,6 @@ private:
 };
 
 inline long
-eprop_iaf_psc_delta::get_shift() const
-{
-  return offset_gen_ + delay_in_rec_;
-}
-
-inline bool
-eprop_iaf_psc_delta::is_eprop_recurrent_node() const
-{
-  return true;
-}
-
-inline long
 eprop_iaf_psc_delta::get_eprop_isi_trace_cutoff() const
 {
   return V_.eprop_isi_trace_cutoff_steps_;
@@ -656,9 +635,9 @@ eprop_iaf_psc_delta::send_test_event( Node& target, size_t receptor_type, synind
   // To perform a consistency check on the delay parameter d_out_rec between recurrent
   // neurons and output neurons, the recurrent neurons send a test event with a delay
   // specified by d_rec_out. Upon receiving the test event from the recurrent neuron,
-  // the output neuron checks if the delay with which the event was received matches 
+  // the output neuron checks if the delay with which the event was received matches
   // its own specified delay parameter d_rec_out.
-  e.set_delay_steps(P_.delay_rec_out_);
+  e.set_delay_steps( P_.delay_rec_out_ );
   e.set_sender( *this );
   return target.handles_test_event( e, receptor_type );
 }

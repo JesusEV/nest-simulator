@@ -129,7 +129,7 @@ EpropArchivingNodeReadout< hist_shift_required >::model_dependent_history_shift_
   }
   else
   {
-    return -delay_rec_out_;
+    return -get_delay_total();
   }
 }
 

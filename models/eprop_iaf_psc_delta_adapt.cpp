@@ -445,7 +445,8 @@ eprop_iaf_psc_delta_adapt::handle( DataLoggingRequest& e )
 void
 eprop_iaf_psc_delta_adapt::compute_gradient( const long t_spike,
   const long t_spike_previous,
-  double& z_previous_buffer,
+  std::queue< double >& z_previous_buffer,
+  double& z_previous,
   double& z_bar,
   double& e_bar,
   double& e_bar_reg,
@@ -454,13 +455,13 @@ eprop_iaf_psc_delta_adapt::compute_gradient( const long t_spike,
   const CommonSynapseProperties& cp,
   WeightOptimizer* optimizer )
 {
-  double e = 0.0;                // eligibility trace
-  double z = 0.0;                // spiking variable
-  double z_current_buffer = 1.0; // buffer containing the spike that triggered the current integration
-  double psi = 0.0;              // surrogate gradient
-  double L = 0.0;                // learning signal
-  double firing_rate_reg = 0.0;  // firing rate regularization
-  double grad = 0.0;             // gradient
+  double e = 0.0;               // eligibility trace
+  double z = 0.0;               // spiking variable
+  double z_current = 1.0;       // buffer containing the spike that triggered the current integration
+  double psi = 0.0;             // surrogate gradient
+  double L = 0.0;               // learning signal
+  double firing_rate_reg = 0.0; // firing rate regularization
+  double grad = 0.0;            // gradient
 
   const EpropSynapseCommonProperties& ecp = static_cast< const EpropSynapseCommonProperties& >( cp );
   const auto optimize_each_step = ( *ecp.optimizer_cp_ ).optimize_each_step_;
@@ -471,9 +472,14 @@ eprop_iaf_psc_delta_adapt::compute_gradient( const long t_spike,
 
   for ( long t = t_spike_previous; t < t_compute_until; ++t, ++eprop_hist_it )
   {
-    z = z_previous_buffer;
-    z_previous_buffer = z_current_buffer;
-    z_current_buffer = 0.0;
+    if ( P_.delay_total_ > 1 )
+    {
+      update_pre_syn_buffer_multiple_entries( z, z_current, z_previous, z_previous_buffer, t_spike, t );
+    }
+    else
+    {
+      update_pre_syn_buffer_one_entry( z, z_current, z_previous, z_previous_buffer, t_spike, t );
+    }
 
     psi = eprop_hist_it->surrogate_gradient_;
     L = eprop_hist_it->learning_signal_;

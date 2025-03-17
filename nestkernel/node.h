@@ -861,6 +861,7 @@ public:
    * @param t_spike [in] Time of the current spike.
    * @param t_spike_previous [in] Time of the previous spike.
    * @param z_previous_buffer [in, out] Value of presynaptic spiking variable from previous time step.
+   * @param z_previous
    * @param z_bar [in, out] Filtered presynaptic spiking variable.
    * @param e_bar [in, out] Filtered eligibility trace.
    * @param e_bar_reg [in, out] Filtered eligibility trace for firing rate regularization.
@@ -872,27 +873,11 @@ public:
    */
   virtual void compute_gradient( const long t_spike,
     const long t_spike_previous,
-    double& z_previous,
-    double& z_bar,
-    double& e_bar,
-    double& epsilon,
-    double& weight,
-    const CommonSynapseProperties& cp,
-    WeightOptimizer* optimizer );
-
-  /**
-   * Compute gradient change for eprop synapses.
-   *
-   * This method is called from an eprop synapse on the eprop target neuron and returns the change in gradient.
-   *
-   * @params presyn_isis  is cleared during call
-   */
-  virtual void compute_gradient( const long t_spike,
-    const long t_spike_previous,
     std::queue< double >& z_previous_buffer,
     double& z_previous,
     double& z_bar,
     double& e_bar,
+    double& e_bar_reg,
     double& epsilon,
     double& weight,
     const CommonSynapseProperties& cp,
@@ -901,9 +886,17 @@ public:
   /**
    * Compute gradient change for eprop synapses.
    *
-   * This method is called from an eprop synapse on the eprop target neuron and returns the change in gradient.
+   * This method is called from an eprop synapse on the eprop target neuron. It updates various parameters related to
+   * e-prop plasticity according to Bellec et al. (2020).
    *
-   * @params presyn_isis  is cleared during call
+   * @param presyn_isis [in, out] Vector of inter-spike intervals.
+   * @param t_previous_update [in] Time of the last update.
+   * @param t_previous_trigger_spike [in] Time of the last trigger spike.
+   * @param kappa [in] Decay factor for the eligibility trace.
+   * @param average_gradient [in] Boolean flag determining whether to compute an average of the gradients over the given
+   * period.
+   *
+   * @return Returns the computed gradient value.
    */
   virtual double compute_gradient( std::vector< long >& presyn_isis,
     const long t_previous_update,

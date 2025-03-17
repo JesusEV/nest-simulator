@@ -135,8 +135,8 @@ eprop_iaf_psc_delta::Parameters_::get( DictionaryDatum& d ) const
   def< double >( d, names::gamma, gamma_ );
   def< std::string >( d, names::surrogate_gradient_function, surrogate_gradient_function_ );
   def< double >( d, names::kappa, kappa_ );
-  def< long >( d, names::eprop_isi_trace_cutoff, eprop_isi_trace_cutoff_ );
-
+  def< double >( d, names::kappa_reg, kappa_reg_ );
+  def< double >( d, names::eprop_isi_trace_cutoff, eprop_isi_trace_cutoff_ );
   double delay_rec_out_ms = Time( Time::step( delay_rec_out_ ) ).get_ms();
   def< double >( d, names::delay_rec_out, delay_rec_out_ms );
   double delay_out_rec_ms = Time( Time::step( delay_out_rec_ ) ).get_ms();
@@ -169,17 +169,10 @@ eprop_iaf_psc_delta::Parameters_::set( const DictionaryDatum& d, Node* node )
 
   updateValueParam< double >( d, names::beta, beta_, node );
   updateValueParam< double >( d, names::gamma, gamma_, node );
-
-  if ( updateValueParam< std::string >( d, names::surrogate_gradient_function, surrogate_gradient_function_, node ) )
-  {
-    eprop_iaf_psc_delta* nrn = dynamic_cast< eprop_iaf_psc_delta* >( node );
-    assert( nrn );
-    auto compute_surrogate_gradient = nrn->find_surrogate_gradient( surrogate_gradient_function_ );
-    nrn->compute_surrogate_gradient_ = compute_surrogate_gradient;
-  }
-
+  updateValueParam< std::string >( d, names::surrogate_gradient_function, surrogate_gradient_function_, node );
   updateValueParam< double >( d, names::kappa, kappa_, node );
-  updateValueParam< long >( d, names::eprop_isi_trace_cutoff, eprop_isi_trace_cutoff_, node );
+  updateValueParam< double >( d, names::kappa_reg, kappa_reg_, node );
+  updateValueParam< double >( d, names::eprop_isi_trace_cutoff, eprop_isi_trace_cutoff_, node );
 
   double delay_rec_out_ms = Time( Time::step( delay_rec_out_ ) ).get_ms();
   updateValueParam< double >( d, names::delay_rec_out, delay_rec_out_ms, node );
@@ -316,16 +309,26 @@ eprop_iaf_psc_delta::pre_run_hook()
 
   V_.P_v_m_ = std::exp( -dt / P_.tau_m_ );
   V_.P_i_in_ = P_.tau_m_ / P_.C_m_ * ( 1.0 - V_.P_v_m_ );
-
   if ( eprop_history_.empty() )
   {
     for ( long t = -P_.delay_total_; t < 0; ++t )
     {
-      emplace_new_eprop_history_entry( t );
+      append_new_eprop_history_entry( t );
     }
   }
 }
 
+long
+eprop_iaf_psc_delta::get_shift() const
+{
+  return offset_gen_ + delay_in_rec_;
+}
+
+bool
+eprop_iaf_psc_delta::is_eprop_recurrent_node() const
+{
+  return true;
+}
 
 /* ----------------------------------------------------------------
  * Update function
@@ -446,82 +449,20 @@ eprop_iaf_psc_delta::compute_gradient( const long t_spike,
   const CommonSynapseProperties& cp,
   WeightOptimizer* optimizer )
 {
-  double e = 0.0;                // eligibility trace
-  double z = 0.0;                // spiking variable
-  double z_current_buffer = 1.0; // buffer containing the spike that triggered the current integration
-  double psi = 0.0;              // surrogate gradient
-  double L = 0.0;                // learning signal
-  double firing_rate_reg = 0.0;  // firing rate regularization
-  double grad = 0.0;             // gradient
+  double e = 0.0;               // eligibility trace
+  double z = 0.0;               // spiking variable
+  double z_current = 1.0;       // buffer containing the spike that triggered the current integration
+  double psi = 0.0;             // surrogate gradient
+  double L = 0.0;               // learning signal
+  double firing_rate_reg = 0.0; // firing rate regularization
+  double grad = 0.0;            // gradient
 
   const EpropSynapseCommonProperties& ecp = static_cast< const EpropSynapseCommonProperties& >( cp );
   const auto optimize_each_step = ( *ecp.optimizer_cp_ ).optimize_each_step_;
 
-  auto eprop_hist_it = get_eprop_history( t_spike_previous - 1 );
-
-  const long t_compute_until = std::min( t_spike_previous + P_.eprop_isi_trace_cutoff_, t_spike );
-
-  for ( long t = t_spike_previous; t < t_compute_until; ++t, ++eprop_hist_it )
-  {
-    z = z_previous;
-    z_previous = z_current;
-    z_current = 0.0;
-
-    psi = eprop_hist_it->surrogate_gradient_;
-    L = eprop_hist_it->learning_signal_;
-
-    z_bar = V_.P33_ * z_bar + V_.P_z_in_ * z;
-    e = psi * z_bar;
-    e_bar = P_.kappa_ * e_bar + ( 1.0 - P_.kappa_ ) * e;
-
-    if ( optimize_each_step )
-    {
-      grad = L * e_bar;
-      weight = optimizer->optimized_weight( *ecp.optimizer_cp_, t, grad, weight );
-    }
-    else
-    {
-      grad += L * e_bar;
-    }
-  }
-
-  if ( not optimize_each_step )
-  {
-    weight = optimizer->optimized_weight( *ecp.optimizer_cp_, t_compute_until, grad, weight );
-  }
-
-  const int power = t_spike - ( t_spike_previous + P_.eprop_isi_trace_cutoff_ );
-
-  if ( power > 0 )
-  {
-    z_bar *= std::pow( V_.P33_, power );
-    e_bar *= std::pow( P_.kappa_, power );
-  }
-}
-
-void
-eprop_iaf_psc_delta::compute_gradient( const long t_spike,
-  const long t_spike_previous,
-  std::queue< double >& z_previous_buffer,
-  double& z_bar,
-  double& e_bar,
-  double& epsilon,
-  double& weight,
-  const CommonSynapseProperties& cp,
-  WeightOptimizer* optimizer )
-{
-  double e = 0.0;    // eligibility trace
-  double z = 0.0;    // spiking variable
-  double psi = 0.0;  // surrogate gradient
-  double L = 0.0;    // learning signal
-  double grad = 0.0; // gradient
-
-  const EpropSynapseCommonProperties& ecp = static_cast< const EpropSynapseCommonProperties& >( cp );
-  const auto optimize_each_step = ( *ecp.optimizer_cp_ ).optimize_each_step_;  
-
   auto eprop_hist_it = get_eprop_history( t_spike_previous - P_.delay_total_ );
 
-  const long t_compute_until = std::min( t_spike_previous + P_.eprop_isi_trace_cutoff_, t_spike );
+  const long t_compute_until = std::min( t_spike_previous + V_.eprop_isi_trace_cutoff_steps_, t_spike );
 
   for ( long t = t_spike_previous; t < t_compute_until; ++t, ++eprop_hist_it )
   {
@@ -536,10 +477,12 @@ eprop_iaf_psc_delta::compute_gradient( const long t_spike,
 
     psi = eprop_hist_it->surrogate_gradient_;
     L = eprop_hist_it->learning_signal_;
+    firing_rate_reg = eprop_hist_it->firing_rate_reg_;
 
-    z_bar = V_.P33_ * z_bar + V_.P_z_in_ * z;
+    z_bar = V_.P_v_m_ * z_bar + z;
     e = psi * z_bar;
-    e_bar = P_.kappa_ * e_bar + ( 1.0 - P_.kappa_ ) * e;
+    e_bar = P_.kappa_ * e_bar + e;
+    e_bar_reg = P_.kappa_reg_ * e_bar_reg + ( 1.0 - P_.kappa_reg_ ) * e;
 
     if ( optimize_each_step )
     {

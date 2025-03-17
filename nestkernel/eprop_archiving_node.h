@@ -106,6 +106,32 @@ public:
    */
   void erase_used_eprop_history( const long eprop_isi_trace_cutoff );
 
+  /**
+   * @brief Retrieves eprop history size.
+   *
+   * Retrieves the size of the eprop history buffer.
+   */
+
+  double get_eprop_history_duration() const;
+
+  //! Update multiple entries in the presynaptic buffer. This function is used when the total synaptic delay
+  //! is greater than one.
+  void update_pre_syn_buffer_multiple_entries( double& z,
+    double& z_current,
+    double& z_previous,
+    std::queue< double >& z_previous_buffer,
+    double t_spike,
+    double t );
+
+  //! Update one entry in the presynaptic buffer. This function is used when the total synaptic delay
+  //! is equal one.
+  void update_pre_syn_buffer_one_entry( double& z,
+    double& z_current,
+    double& z_previous,
+    std::queue< double >& z_previous_buffer,
+    double t_spike,
+    double t );
+
 protected:
   //! Returns correct shift for history depending on whether it is a normal or a bsshslm_2020 model.
   virtual long model_dependent_history_shift_() const = 0;
