@@ -229,12 +229,12 @@ eprop_iaf::Parameters_::set( const DictionaryDatum& d, Node* node )
 
   if ( delay_rec_out_ < 1 )
   {
-    throw BadProperty( "Connection delay from recurrent to output neuron ≥ 1 required." );
+    throw BadProperty( "Connection delay from recurrent to readout neuron ≥ 1 required." );
   }
 
   if ( delay_out_rec_ < 1 )
   {
-    throw BadProperty( "Broadcast delay of learning signals ≥ 1 required." );
+    throw BadProperty( "Connection delay from readout to recurrent neuron ≥ 1 required." );
   }
 
   delay_total_ = delay_rec_out_ + ( delay_out_rec_ - 1 );
