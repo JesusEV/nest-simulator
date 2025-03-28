@@ -271,9 +271,8 @@ eprop_readout::update( Time const& origin, const long from, const long to )
     S_.error_signal_ *= S_.learning_window_signal_;
 
     S_.error_signal_deque_.push_back( S_.error_signal_ );
-    double err_sig = S_.error_signal_deque_.front(); // get delay_out_rec-th value
+    error_signal_buffer[ lag ] = S_.error_signal_deque_.front(); // get delay_out_rec-th value
     S_.error_signal_deque_.pop_front();
-    error_signal_buffer[ lag ] = err_sig;
 
     append_new_eprop_history_entry( t );
     write_error_signal_to_history( t, S_.error_signal_ );
