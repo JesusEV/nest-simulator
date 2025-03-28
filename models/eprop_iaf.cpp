@@ -134,10 +134,8 @@ eprop_iaf::Parameters_::get( DictionaryDatum& d ) const
   def< double >( d, names::kappa, kappa_ );
   def< double >( d, names::kappa_reg, kappa_reg_ );
   def< double >( d, names::eprop_isi_trace_cutoff, eprop_isi_trace_cutoff_ );
-  double delay_rec_out_ms = Time( Time::step( delay_rec_out_ ) ).get_ms();
-  def< double >( d, names::delay_rec_out, delay_rec_out_ms );
-  double delay_out_rec_ms = Time( Time::step( delay_out_rec_ ) ).get_ms();
-  def< double >( d, names::delay_out_rec, delay_out_rec_ms );
+  def< double >( d, names::delay_rec_out, Time( Time::step( delay_rec_out_ ) ).get_ms() );
+  def< double >( d, names::delay_out_rec, Time( Time::step( delay_out_rec_ ) ).get_ms() );
 }
 
 double
