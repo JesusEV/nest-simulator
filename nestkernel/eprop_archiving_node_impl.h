@@ -199,7 +199,7 @@ EpropArchivingNode< HistEntryT >::update_pre_syn_buffer_multiple_entries( double
   double t_spike,
   double t )
 {
-  if ( !z_previous_buffer.empty() )
+  if ( not z_previous_buffer.empty() )
   {
     z = z_previous_buffer.front();
     z_previous_buffer.pop();

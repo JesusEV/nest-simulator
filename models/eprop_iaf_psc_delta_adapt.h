@@ -670,7 +670,6 @@ eprop_iaf_psc_delta_adapt::get_eprop_isi_trace_cutoff() const
   return V_.eprop_isi_trace_cutoff_steps_;
 }
 
-
 inline long
 eprop_iaf_psc_delta_adapt::get_delay_total() const
 {

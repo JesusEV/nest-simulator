@@ -508,7 +508,7 @@ template < typename targetidentifierT >
 void
 eprop_synapse< targetidentifierT >::initialize_z_previous_buffer( const long delay_total )
 {
-  for ( int i = 0; i < delay_total; i++ )
+  for ( long i = 0; i < delay_total; i++ )
   {
     z_previous_buffer_.push( 0.0 );
   }

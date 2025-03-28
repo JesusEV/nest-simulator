@@ -303,6 +303,7 @@ eprop_iaf::pre_run_hook()
 
   V_.P_v_m_ = std::exp( -dt / P_.tau_m_ );
   V_.P_i_in_ = P_.tau_m_ / P_.C_m_ * ( 1.0 - V_.P_v_m_ );
+
   if ( eprop_history_.empty() )
   {
     for ( long t = -P_.delay_total_; t < 0; ++t )

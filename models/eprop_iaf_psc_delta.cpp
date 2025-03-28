@@ -137,10 +137,8 @@ eprop_iaf_psc_delta::Parameters_::get( DictionaryDatum& d ) const
   def< double >( d, names::kappa, kappa_ );
   def< double >( d, names::kappa_reg, kappa_reg_ );
   def< double >( d, names::eprop_isi_trace_cutoff, eprop_isi_trace_cutoff_ );
-  double delay_rec_out_ms = Time( Time::step( delay_rec_out_ ) ).get_ms();
-  def< double >( d, names::delay_rec_out, delay_rec_out_ms );
-  double delay_out_rec_ms = Time( Time::step( delay_out_rec_ ) ).get_ms();
-  def< double >( d, names::delay_out_rec, delay_out_rec_ms );
+  def< double >( d, names::delay_rec_out, Time::step( delay_rec_out_ ) );
+  def< double >( d, names::delay_out_rec, Time::step( delay_out_rec_ ) );
 }
 
 double
@@ -174,13 +172,11 @@ eprop_iaf_psc_delta::Parameters_::set( const DictionaryDatum& d, Node* node )
   updateValueParam< double >( d, names::kappa_reg, kappa_reg_, node );
   updateValueParam< double >( d, names::eprop_isi_trace_cutoff, eprop_isi_trace_cutoff_, node );
 
-  double delay_rec_out_ms = Time( Time::step( delay_rec_out_ ) ).get_ms();
-  updateValueParam< double >( d, names::delay_rec_out, delay_rec_out_ms, node );
-  delay_rec_out_ = Time( Time::ms( delay_rec_out_ms ) ).get_steps();
+  const double delay_rec_out_ = Time::step( delay_rec_out_ );
+  updateValueParam< double >( d, names::delay_rec_out, Time( delay_rec_out_).get_ms(), node );
 
-  double delay_out_rec_ms = Time( Time::step( delay_out_rec_ ) ).get_ms();
-  updateValueParam< double >( d, names::delay_out_rec, delay_out_rec_ms, node );
-  delay_out_rec_ = Time( Time::ms( delay_out_rec_ms ) ).get_steps();
+  const double delay_out_rec_ = Time::step( delay_out_rec_ );
+  updateValueParam< double >( d, names::delay_out_rec, Time( delay_out_rec_).get_ms(), node );
 
   if ( V_reset_ >= V_th_ )
   {
@@ -309,6 +305,7 @@ eprop_iaf_psc_delta::pre_run_hook()
 
   V_.P_v_m_ = std::exp( -dt / P_.tau_m_ );
   V_.P_i_in_ = P_.tau_m_ / P_.C_m_ * ( 1.0 - V_.P_v_m_ );
+
   if ( eprop_history_.empty() )
   {
     for ( long t = -P_.delay_total_; t < 0; ++t )
