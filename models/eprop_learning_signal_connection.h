@@ -166,7 +166,7 @@ public:
     const long delay_out_rec = t.get_delay_readout_to_recurrent();
     if ( delay_out_rec != get_delay_steps() )
     {
-      throw IllegalConnection( "delay == delay_rec_out from target neuron required." );
+      throw IllegalConnection( "delay == delay_rec_out of target neuron required." );
     }
 
     s.sends_secondary_event( ge );

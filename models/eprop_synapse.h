@@ -477,14 +477,14 @@ eprop_synapse< targetidentifierT >::check_connection( Node& s,
     throw IllegalConnection( "eprop synapses currently require a delay of one simulation step" );
   }
 
-  bool is_recurrent_node = t.is_eprop_recurrent_node();
+  const bool is_recurrent_node = t.is_eprop_recurrent_node();
 
   if ( not is_recurrent_node )
   {
     const long delay_rec_out = t.get_delay_total();
     if ( delay_rec_out != get_delay_steps() )
     {
-      throw IllegalConnection( "delay == delay_rec_out from target neuron required." );
+      throw IllegalConnection( "delay == delay_rec_out of target neuron required." );
     }
   }
 

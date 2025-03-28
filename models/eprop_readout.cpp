@@ -162,7 +162,7 @@ eprop_readout::Parameters_::set( const DictionaryDatum& d, Node* node )
 
   if ( delay_out_rec_ < 1 )
   {
-    throw BadProperty( "Broadcast delay of learning signals ≥ 1 required." );
+    throw BadProperty( "Connection delay from readout to recurrent neuron ≥ 1 required." );
   }
 
   return delta_EL;
