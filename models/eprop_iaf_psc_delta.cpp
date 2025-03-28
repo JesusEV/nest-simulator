@@ -448,7 +448,7 @@ eprop_iaf_psc_delta::compute_gradient( const long t_spike,
 {
   double e = 0.0;               // eligibility trace
   double z = 0.0;               // spiking variable
-  double z_current = 1.0;       // buffer containing the spike that triggered the current integration
+  double z_current = 1.0;       // spike state that triggered the current integration
   double psi = 0.0;             // surrogate gradient
   double L = 0.0;               // learning signal
   double firing_rate_reg = 0.0; // firing rate regularization

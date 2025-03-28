@@ -353,7 +353,7 @@ eprop_readout::compute_gradient( const long t_spike,
   WeightOptimizer* optimizer )
 {
   double z = 0.0;         // spiking variable
-  double z_current = 1.0; // buffer containing the spike that triggered the current integration
+  double z_current = 1.0; // spike state that triggered the current integration
   double L = 0.0;         // error signal
   double grad = 0.0;      // gradient
 
