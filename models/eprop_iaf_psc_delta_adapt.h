@@ -502,13 +502,13 @@ private:
     //! Time interval from the previous spike until the cutoff of e-prop update integration between two spikes (ms).
     double eprop_isi_trace_cutoff_;
 
-    //! Connection delay from recurrent to output neurons.
+    //! Connection delay from recurrent to readout neuron.
     long delay_rec_out_;
 
-    //! Broadcast delay of learning signals.
+    //! Connection delay from readout to recurrent neuron.
     long delay_out_rec_;
 
-    //! Sum of broadcast delay of learning signals and connection delay from recurrent to output neurons.
+    //! Sum of connection delays from recurrent to readout neuron and readout to recurrent neuron.
     long delay_total_;
 
     //! Default constructor.
@@ -694,9 +694,9 @@ eprop_iaf_psc_delta_adapt::send_test_event( Node& target, size_t receptor_type, 
   SpikeEvent e;
 
   // To perform a consistency check on the delay parameter d_out_rec between recurrent
-  // neurons and output neurons, the recurrent neurons send a test event with a delay
+  // neurons and readout neurons, the recurrent neurons send a test event with a delay
   // specified by d_rec_out. Upon receiving the test event from the recurrent neuron,
-  // the output neuron checks if the delay with which the event was received matches
+  // the readout neuron checks if the delay with which the event was received matches
   // its own specified delay parameter d_rec_out.
   e.set_delay_steps( P_.delay_rec_out_ );
   e.set_sender( *this );

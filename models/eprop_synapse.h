@@ -341,7 +341,7 @@ private:
   //! Queue of length delay_total_ to hold previous spiking variables.
   std::queue< double > z_previous_buffer_;
 
-  //! Sum of broadcast delay of learning signals and connection delay from recurrent to output neurons.
+  //! Sum of connection delays from recurrent to readout neuron and readout to recurrent neuron.
   long delay_total_ = 0;
 
   /**

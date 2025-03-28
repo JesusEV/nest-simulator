@@ -534,7 +534,7 @@ public:
   virtual long get_eprop_isi_trace_cutoff() const;
 
   /**
-   * Get sum of broadcast delay of learning signals and connection delay from recurrent to output neurons.
+   * Get sum of connection delays from recurrent to output neuron and output to recurrent neuron.
    *
    * @throws IllegalConnection
    */
@@ -542,7 +542,7 @@ public:
   virtual long get_delay_total() const;
 
   /**
-   * Get connection delay from recurrent to output neurons.
+   * Get connection delay from recurrent to output neuron.
    *
    * @throws IllegalConnection
    */
@@ -550,7 +550,7 @@ public:
   virtual long get_delay_recurrent_to_readout() const;
 
   /**
-   * Get connection delay of learning signals and connection delay from recurrent to output neurons.
+   * Get connection delay from output to recurrent neuron.
    *
    * @throws IllegalConnection
    */

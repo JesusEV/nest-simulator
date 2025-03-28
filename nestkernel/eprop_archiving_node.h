@@ -114,8 +114,11 @@ public:
 
   double get_eprop_history_duration() const;
 
-  //! Update multiple entries in the presynaptic buffer. This function is used when the total synaptic delay
-  //! is greater than one.
+  /**
+   * @brief Updates multiple entries in the presynaptic buffer.
+   *
+   * Used when the total synaptic delay is greater than one.
+   */
   void update_pre_syn_buffer_multiple_entries( double& z,
     double& z_current,
     double& z_previous,
@@ -123,8 +126,11 @@ public:
     double t_spike,
     double t );
 
-  //! Update one entry in the presynaptic buffer. This function is used when the total synaptic delay
-  //! is equal one.
+  /**
+   * @brief Updates one entry in the presynaptic buffer.
+   *
+   * Used when the total synaptic delay equals one.
+   */
   void update_pre_syn_buffer_one_entry( double& z,
     double& z_current,
     double& z_previous,

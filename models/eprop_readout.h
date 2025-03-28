@@ -343,10 +343,10 @@ private:
     //! Time interval from the previous spike until the cutoff of e-prop update integration between two spikes (ms).
     double eprop_isi_trace_cutoff_;
 
-    //! Connection delay from recurrent to output neurons.
+    //! Connection delay from recurrent to readout neuron.
     long delay_rec_out_;
 
-    //! Broadcast delay of learning signals.
+    //! Connection delay from readout to recurrent neuron.
     long delay_out_rec_;
 
     //! Default constructor.
@@ -519,9 +519,9 @@ eprop_readout::handles_test_event( SpikeEvent& e, size_t receptor_type )
   }
 
   // To perform a consistency check on the delay parameter d_out_rec between recurrent
-  // neurons and output neurons, the recurrent neurons send a test event with a delay
+  // neurons and readout neurons, the recurrent neurons send a test event with a delay
   // specified by d_rec_out. Upon receiving the test event from the recurrent neuron,
-  // the output neuron checks if the delay with which the event was received matches
+  // the readout neuron checks if the delay with which the event was received matches
   // its own specified delay parameter d_rec_out.
 
   // ensure that the spike event was not sent by a proxy node
