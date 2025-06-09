@@ -435,7 +435,7 @@ def generate_superimposed_sines(steps_sequence, periods):
 target_signal = generate_superimposed_sines(steps["sequence"], [1000, 500, 333, 200])  # periods in steps
 
 params_gen_rate_target = {
-    "amplitude_times": np.arange(0.0, duration["task"], duration["step"]) + duration["total_offset"],
+    "amplitude_times": np.arange(0.0, duration["task"], duration["step"]) + duration["total_offset"] + duration["delay_rec_out"] - 1.0,
     "amplitude_values": np.tile(target_signal, n_iter * group_size),
 }
 

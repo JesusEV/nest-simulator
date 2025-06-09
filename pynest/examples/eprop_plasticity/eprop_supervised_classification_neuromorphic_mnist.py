@@ -599,6 +599,7 @@ def get_params_task_input_output(n_iter_interval, loader):
                 + iteration_offset
                 + group_element * duration["sequence"]
                 + duration["total_offset"]
+                + duration["delay_rec_out"] - 1.0
                 for group_element in range(group_size)
             ]
         ),
