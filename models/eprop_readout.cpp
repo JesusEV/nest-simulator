@@ -76,6 +76,8 @@ eprop_readout::Parameters_::Parameters_()
   , tau_m_( 10.0 )
   , V_min_( -std::numeric_limits< double >::max() )
   , eprop_isi_trace_cutoff_( 1000.0 )
+  , delay_rec_out_( 1 )
+  , delay_out_rec_( 1 )
 {
 }
 
@@ -113,6 +115,8 @@ eprop_readout::Parameters_::get( DictionaryDatum& d ) const
   def< double >( d, names::tau_m, tau_m_ );
   def< double >( d, names::V_min, V_min_ + E_L_ );
   def< double >( d, names::eprop_isi_trace_cutoff, eprop_isi_trace_cutoff_ );
+  def< double >( d, names::delay_rec_out, Time( Time::step( delay_rec_out_ ) ).get_ms() );
+  def< double >( d, names::delay_out_rec, Time( Time::step( delay_out_rec_ ) ).get_ms() );
 }
 
 double
@@ -130,6 +134,12 @@ eprop_readout::Parameters_::set( const DictionaryDatum& d, Node* node )
   updateValueParam< double >( d, names::tau_m, tau_m_, node );
   updateValueParam< double >( d, names::eprop_isi_trace_cutoff, eprop_isi_trace_cutoff_, node );
 
+  const double delay_rec_out_ = Time::step( delay_rec_out_ );
+  updateValueParam< double >( d, names::delay_rec_out, Time( delay_rec_out_).get_ms(), node );
+
+  const double delay_out_rec_ = Time::step( delay_out_rec_ );
+  updateValueParam< double >( d, names::delay_out_rec, Time( delay_out_rec_ ).get_ms(), node );
+
   if ( C_m_ <= 0 )
   {
     throw BadProperty( "Membrane capacitance C_m > 0 required." );
@@ -143,6 +153,16 @@ eprop_readout::Parameters_::set( const DictionaryDatum& d, Node* node )
   if ( eprop_isi_trace_cutoff_ < 0.0 )
   {
     throw BadProperty( "Cutoff of integration of eprop trace between spikes eprop_isi_trace_cutoff ≥ 0 required." );
+  }
+
+  if ( delay_rec_out_ < 1 )
+  {
+    throw BadProperty( "Connection delay from recurrent to output neuron ≥ 1 required." );
+  }
+
+  if ( delay_out_rec_ < 1 )
+  {
+    throw BadProperty( "Connection delay from readout to recurrent neuron ≥ 1 required." );
   }
 
   return delta_EL;
@@ -207,6 +227,19 @@ eprop_readout::pre_run_hook()
 
   V_.P_v_m_ = std::exp( -dt / P_.tau_m_ );
   V_.P_i_in_ = P_.tau_m_ / P_.C_m_ * ( 1.0 - V_.P_v_m_ );
+
+  if ( eprop_history_.empty() )
+  {
+    for ( long t = -P_.delay_rec_out_; t < 0; ++t )
+    {
+      append_new_eprop_history_entry( t );
+    }
+
+    for ( long i = 0; i < P_.delay_out_rec_ - 1; i++ )
+    {
+      S_.error_signal_deque_.push_back( 0.0 );
+    }
+  }
 }
 
 
@@ -237,7 +270,9 @@ eprop_readout::update( Time const& origin, const long from, const long to )
     S_.readout_signal_ *= S_.learning_window_signal_;
     S_.error_signal_ *= S_.learning_window_signal_;
 
-    error_signal_buffer[ lag ] = S_.error_signal_;
+    S_.error_signal_deque_.push_back( S_.error_signal_ );
+    error_signal_buffer[ lag ] = S_.error_signal_deque_.front(); // get delay_out_rec-th value
+    S_.error_signal_deque_.pop_front();
 
     append_new_eprop_history_entry( t );
     write_error_signal_to_history( t, S_.error_signal_ );
@@ -307,7 +342,8 @@ eprop_readout::handle( DataLoggingRequest& e )
 void
 eprop_readout::compute_gradient( const long t_spike,
   const long t_spike_previous,
-  double& z_previous_buffer,
+  std::queue< double >& z_previous_buffer,
+  double& z_previous,
   double& z_bar,
   double& e_bar,
   double& e_bar_reg,
@@ -316,10 +352,10 @@ eprop_readout::compute_gradient( const long t_spike,
   const CommonSynapseProperties& cp,
   WeightOptimizer* optimizer )
 {
-  double z = 0.0;                // spiking variable
-  double z_current_buffer = 1.0; // buffer containing the spike that triggered the current integration
-  double L = 0.0;                // error signal
-  double grad = 0.0;             // gradient
+  double z = 0.0;         // spiking variable
+  double z_current = 1.0; // spike state that triggered the current integration
+  double L = 0.0;         // error signal
+  double grad = 0.0;      // gradient
 
   const EpropSynapseCommonProperties& ecp = static_cast< const EpropSynapseCommonProperties& >( cp );
   const auto optimize_each_step = ( *ecp.optimizer_cp_ ).optimize_each_step_;
@@ -330,9 +366,15 @@ eprop_readout::compute_gradient( const long t_spike,
 
   for ( long t = t_spike_previous; t < t_compute_until; ++t, ++eprop_hist_it )
   {
-    z = z_previous_buffer;
-    z_previous_buffer = z_current_buffer;
-    z_current_buffer = 0.0;
+    if ( P_.delay_rec_out_ > 1 )
+    {
+      z = z_previous_buffer.front();
+      update_pre_syn_buffer_multiple_entries( z, z_current, z_previous, z_previous_buffer, t_spike, t );
+    }
+    else
+    {
+      update_pre_syn_buffer_one_entry( z, z_current, z_previous, z_previous_buffer, t_spike, t );
+    }
 
     L = eprop_hist_it->error_signal_;
 

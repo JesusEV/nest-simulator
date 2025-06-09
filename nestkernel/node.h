@@ -26,6 +26,7 @@
 // C++ includes:
 #include <bitset>
 #include <deque>
+#include <queue>
 #include <sstream>
 #include <string>
 #include <utility>
@@ -533,6 +534,30 @@ public:
   virtual long get_eprop_isi_trace_cutoff() const;
 
   /**
+   * Get sum of connection delays from recurrent to output neuron and output to recurrent neuron.
+   *
+   * @throws IllegalConnection
+   */
+
+  virtual long get_delay_total() const;
+
+  /**
+   * Get connection delay from recurrent to output neuron.
+   *
+   * @throws IllegalConnection
+   */
+
+  virtual long get_delay_recurrent_to_readout() const;
+
+  /**
+   * Get connection delay from output to recurrent neuron.
+   *
+   * @throws IllegalConnection
+   */
+
+  virtual long get_delay_readout_to_recurrent() const;
+
+  /**
    * Checks if the node is part of the recurrent network and thus not a readout neuron.
    *
    * @note The e-prop synapse calls this function of the target node. If true,
@@ -836,6 +861,7 @@ public:
    * @param t_spike [in] Time of the current spike.
    * @param t_spike_previous [in] Time of the previous spike.
    * @param z_previous_buffer [in, out] Value of presynaptic spiking variable from previous time step.
+   * @param z_previous
    * @param z_bar [in, out] Filtered presynaptic spiking variable.
    * @param e_bar [in, out] Filtered eligibility trace.
    * @param e_bar_reg [in, out] Filtered eligibility trace for firing rate regularization.
@@ -847,7 +873,8 @@ public:
    */
   virtual void compute_gradient( const long t_spike,
     const long t_spike_previous,
-    double& z_previous_buffer,
+    std::queue< double >& z_previous_buffer,
+    double& z_previous,
     double& z_bar,
     double& e_bar,
     double& e_bar_reg,

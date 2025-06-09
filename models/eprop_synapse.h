@@ -271,6 +271,9 @@ public:
   //! Update values in parameter dictionary.
   void set_status( const DictionaryDatum& d, ConnectorModel& cm );
 
+  //! Initialize the presynaptic buffer.
+  void initialize_z_previous_buffer( const long delay_total );
+
   //! Send the spike event.
   bool send( Event& e, size_t thread, const EpropSynapseCommonProperties& cp );
 
@@ -333,7 +336,13 @@ private:
   double epsilon_ = 0.0;
 
   //! Value of spiking variable one time step before t_previous_spike_.
-  double z_previous_buffer_ = 0.0;
+  double z_previous_ = 0.0;
+
+  //! Queue of length delay_total_ to hold previous spiking variables.
+  std::queue< double > z_previous_buffer_;
+
+  //! Sum of connection delays from recurrent to readout neuron and readout to recurrent neuron.
+  long delay_total_ = 0;
 
   /**
    *  Optimizer
@@ -404,7 +413,7 @@ eprop_synapse< targetidentifierT >::operator=( const eprop_synapse& es )
   e_bar_ = es.e_bar_;
   e_bar_reg_ = es.e_bar_reg_;
   epsilon_ = es.epsilon_;
-  z_previous_buffer_ = es.z_previous_buffer_;
+  z_previous_ = es.z_previous_;
   optimizer_ = es.optimizer_;
 
   return *this;
@@ -445,7 +454,7 @@ eprop_synapse< targetidentifierT >::operator=( eprop_synapse&& es )
   e_bar_ = es.e_bar_;
   e_bar_reg_ = es.e_bar_reg_;
   epsilon_ = es.epsilon_;
-  z_previous_buffer_ = es.z_previous_buffer_;
+  z_previous_ = es.z_previous_;
 
   optimizer_ = es.optimizer_;
 
@@ -463,9 +472,20 @@ eprop_synapse< targetidentifierT >::check_connection( Node& s,
   const CommonPropertiesType& cp )
 {
   // When we get here, delay has been set so we can check it.
-  if ( get_delay_steps() != 1 )
+  if ( get_delay_steps() < 1 )
   {
     throw IllegalConnection( "eprop synapses currently require a delay of one simulation step" );
+  }
+
+  const bool is_recurrent_node = t.is_eprop_recurrent_node();
+
+  if ( not is_recurrent_node )
+  {
+    const long delay_rec_out = t.get_delay_total();
+    if ( delay_rec_out != get_delay_steps() )
+    {
+      throw IllegalConnection( "delay == delay_rec_out of target neuron required." );
+    }
   }
 
   ConnTestDummyNode dummy_target;
@@ -485,6 +505,17 @@ eprop_synapse< targetidentifierT >::delete_optimizer()
 }
 
 template < typename targetidentifierT >
+void
+eprop_synapse< targetidentifierT >::initialize_z_previous_buffer( const long delay_total )
+{
+  for ( long i = 0; i < delay_total; i++ )
+  {
+    z_previous_buffer_.push( 0.0 );
+  }
+  z_previous_buffer_.push( 1.0 );
+}
+
+template < typename targetidentifierT >
 bool
 eprop_synapse< targetidentifierT >::send( Event& e, size_t thread, const EpropSynapseCommonProperties& cp )
 {
@@ -492,11 +523,28 @@ eprop_synapse< targetidentifierT >::send( Event& e, size_t thread, const EpropSy
   assert( target );
 
   const long t_spike = e.get_stamp().get_steps();
+  const long delay_total = target->get_delay_total();
 
   if ( t_spike_previous_ != 0 )
   {
-    target->compute_gradient(
-      t_spike, t_spike_previous_, z_previous_buffer_, z_bar_, e_bar_, e_bar_reg_, epsilon_, weight_, cp, optimizer_ );
+    target->compute_gradient( t_spike,
+      t_spike_previous_,
+      z_previous_buffer_,
+      z_previous_,
+      z_bar_,
+      e_bar_,
+      e_bar_reg_,
+      epsilon_,
+      weight_,
+      cp,
+      optimizer_ );
+  }
+  else
+  {
+    if ( delay_total > 1 )
+    {
+      initialize_z_previous_buffer( delay_total );
+    }
   }
 
   const long eprop_isi_trace_cutoff = target->get_eprop_isi_trace_cutoff();

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# eprop_supervised_regression_sine-waves.py
+# eprop_supervised_classification_evidence-accumulation.py
 #
 # This file is part of NEST.
 #
@@ -20,37 +20,42 @@
 # along with NEST.  If not, see <http://www.gnu.org/licenses/>.
 
 r"""
-Tutorial on learning to generate sine waves with e-prop
+Tutorial on learning to accumulate evidence with e-prop
 -------------------------------------------------------
 
-Training a regression model using supervised e-prop plasticity to generate sine waves
+Training a classification model using supervised e-prop plasticity to accumulate evidence.
 
 Description
 ~~~~~~~~~~~
 
-This script demonstrates supervised learning of a regression task with a recurrent spiking neural network that
-is equipped with the eligibility propagation (e-prop) plasticity mechanism by Bellec et al. [1]_ with
-additional biological features described in [3]_.
+This script demonstrates supervised learning of a classification task with the eligibility propagation (e-prop)
+plasticity mechanism by Bellec et al. [1]_.
 
 This type of learning is demonstrated at the proof-of-concept task in [1]_. We based this script on their
 TensorFlow script given in [2]_.
 
-In this task, the network learns to generate an arbitrary N-dimensional temporal pattern. Here, the
-network learns to reproduce with its overall spiking activity a one-dimensional, one-second-long target signal
-which is a superposition of four sine waves of different amplitudes, phases, and periods.
+The task, a so-called evidence accumulation task, is inspired by behavioral tasks, where a lab animal (e.g., a
+mouse) runs along a track, gets cues on the left and right, and has to decide at the end of the track between
+taking a left and a right turn of which one is correct. After a number of iterations, the animal is able to
+infer the underlying rationale of the task. Here, the solution is to turn to the side in which more cues were
+presented.
 
-.. image:: eprop_supervised_regression_sine-waves.png
+.. image:: ../../../../pynest/examples/eprop_plasticity/eprop_supervised_classification_schematic_evidence-accumulation.png
    :width: 70 %
    :alt: Schematic of network architecture. Same as Figure 1 in the code.
    :align: center
 
 Learning in the neural network model is achieved by optimizing the connection weights with e-prop plasticity.
 This plasticity rule requires a specific network architecture depicted in Figure 1. The neural network model
-consists of a recurrent network that receives frozen noise input from spike generators and projects onto one
-readout neuron. The readout neuron compares the network signal :math:`y` with the teacher target signal
-:math:`y*`, which it receives from a rate generator. In scenarios with multiple readout neurons, each individual
-readout signal denoted as :math:`y_k` is compared with a corresponding target signal represented as
-:math:`y_k^*`. The network's training error is assessed by employing a mean-squared error loss.
+consists of a recurrent network that receives input from Poisson generators and projects onto two readout
+neurons - one for the left and one for the right turn at the end. The input neuron population consists of four
+groups: one group providing background noise of a specific rate for some base activity throughout the
+experiment, one group providing the input spikes of the left cues and one group providing them for the right
+cues, and a last group defining the recall window, in which the network has to decide. The readout neuron
+compares the network signal :math:`\pi_k` with the teacher target signal :math:`\pi_k^*`, which it receives from
+a rate generator. Since the decision is at the end and all the cues are relevant, the network has to keep the
+cues in memory. Additional adaptive neurons in the network enable this memory. The network's training error is
+assessed by employing a mean squared error loss.
 
 Details on the event-based NEST implementation of e-prop can be found in [3]_.
 
@@ -61,12 +66,10 @@ References
        learning dilemma for recurrent networks of spiking neurons. Nature Communications, 11:3625.
        https://doi.org/10.1038/s41467-020-17236-y
 
-.. [2] https://github.com/IGITUGraz/eligibility_propagation/blob/master/Figure_3_and_S7_e_prop_tutorials/tutorial_pattern_generation.py
+.. [2] https://github.com/IGITUGraz/eligibility_propagation/blob/master/Figure_3_and_S7_e_prop_tutorials/tutorial_evidence_accumulation_with_alif.py
 
-.. [3] Korcsak-Gorzo A, Stapmanns J, Espinoza Valverde JA, Plesser HE,
-       Dahmen D, Bolten M, Van Albada SJ, Diesmann M. Event-based
-       implementation of eligibility propagation (in preparation)
-
+.. [3] Korcsak-Gorzo A, Stapmanns J, Espinoza Valverde JA, Dahmen D, van Albada SJ, Plesser HE, Bolten M, Diesmann M.
+       Event-based implementation of eligibility propagation (in preparation)
 """  # pylint: disable=line-too-long # noqa: E501
 
 # %% ###########################################################################################################
@@ -85,11 +88,11 @@ from IPython.display import Image
 # Schematic of network architecture
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # This figure, identical to the one in the description, shows the required network architecture in the center,
-# the input and output of the pattern generation task above, and lists of the required NEST device, neuron, and
-# synapse models below. The connections that must be established are numbered 1 to 6.
+# the input and output of the evidence accumulation task above, and lists of the required NEST device, neuron,
+# and synapse models below. The connections that must be established are numbered 1 to 7.
 
 try:
-    Image(filename="./eprop_supervised_regression_sine-waves.png")
+    Image(filename="./eprop_supervised_classification_schematic_evidence-accumulation.png")
 except Exception:
     pass
 
@@ -114,18 +117,27 @@ np.random.seed(rng_seed)  # fix numpy random seed
 # labels across a group of samples during the evaluation phase. The number of samples in this group is
 # determined by the `group_size` parameter. This data is then used to assess the neural network's
 # performance metrics, such as average accuracy and mean error. Increasing the number of iterations enhances
-# learning performance.
+# learning performance up to the point where overfitting occurs.
 
-group_size = 1  # number of instances over which to evaluate the learning performance
-n_iter = 200  # number of iterations, 2000 in reference [2]
+group_size = 32  # number of instances over which to evaluate the learning performance
+n_iter = 50  # number of iterations
+
+n_input_symbols = 4  # number of input populations, e.g. 4 = left, right, recall, noise
+n_cues = 7  # number of cues given before decision
+prob_group = 0.3  # probability with which one input group is present
 
 steps = {
-    "sequence": 1000,  # time steps of one full sequence
+    "cue": 100,  # time steps in one cue presentation
+    "spacing": 50,  # time steps of break between two cues
+    "bg_noise": 1050,  # time steps of background noise
+    "recall": 150,  # time steps of recall
     "delay_rec_out": 1,  # time steps of connection delay from recurrent to output neurons
     "delay_out_rec": 1,  # time steps of broadcast delay of learning signals
 }
 
-steps["learning_window"] = steps["sequence"]  # time steps of window with non-zero learning signals
+steps["cues"] = n_cues * (steps["cue"] + steps["spacing"])  # time steps of all cues
+steps["sequence"] = steps["cues"] + steps["bg_noise"] + steps["recall"]  # time steps of one full sequence
+steps["learning_window"] = steps["recall"]  # time steps of window with non-zero learning signals
 steps["task"] = n_iter * group_size * steps["sequence"]  # time steps of task
 
 steps.update(
@@ -168,54 +180,73 @@ nest.set(**params_setup)
 # ~~~~~~~~~~~~~~
 # We proceed by creating a certain number of input, recurrent, and readout neurons and setting their parameters.
 # Additionally, we already create an input spike generator and an output target rate generator, which we will
-# configure later.
+# configure later. Within the recurrent network, alongside a population of regular neurons, we introduce a
+# population of adaptive neurons, to enhance the network's memory retention.
 
-n_in = 100  # number of input neurons
-n_rec = 100  # number of recurrent neurons
-n_out = 1  # number of readout neurons
-
-model_nrn_rec = "eprop_iaf"
+n_in = 40  # number of input neurons
+n_ad = 50  # number of adaptive neurons
+n_reg = 50  # number of regular neurons
+n_rec = n_ad + n_reg  # number of recurrent neurons
+n_out = 2  # number of readout neurons
 
 params_nrn_out = {
     "C_m": 1.0,  # pF, membrane capacitance - takes effect only if neurons get current input (here not the case)
     "E_L": 0.0,  # mV, leak / resting membrane potential
     "eprop_isi_trace_cutoff": 100,  # cutoff of integration of eprop trace between spikes
     "I_e": 0.0,  # pA, external current input
-    "tau_m": 30.0,  # ms, membrane time constant
+    "regular_spike_arrival": False,  # If True, input spikes arrive at end of time step, if False at beginning
+    "tau_m": 20.0,  # ms, membrane time constant
     "V_m": 0.0,  # mV, initial value of the membrane voltage
     "delay_out_rec": duration["delay_out_rec"],  # ms, broadcast delay of learning signals
     "delay_rec_out": duration["delay_rec_out"],  # ms, connection delay from recurrent to output neurons
 }
 
-params_nrn_rec = {
-    "beta": 33.3,  # width scaling of the pseudo-derivative
+params_nrn_reg = {
+    "beta": 1.0,  # width scaling of the pseudo-derivative
     "C_m": 1.0,
-    "c_reg": 300.0 / duration["sequence"],  # coefficient of firing rate regularization
+    "c_reg": 300.0 / duration["sequence"] * duration["learning_window"],  # firing rate regularization scaling
     "E_L": 0.0,
     "eprop_isi_trace_cutoff": 100,
     "f_target": 10.0,  # spikes/s, target firing rate for firing rate regularization
-    "gamma": 10.0,  # height scaling of the pseudo-derivative
+    "gamma": 0.3,  # height scaling of the pseudo-derivative
     "I_e": 0.0,
-    "kappa": 0.97,  # low-pass filter of the eligibility trace
-    "kappa_reg": 0.97,  # low-pass filter of the firing rate for regularization
+    "regular_spike_arrival": True,
     "surrogate_gradient_function": "piecewise_linear",  # surrogate gradient / pseudo-derivative function
-    "t_ref": 0.0,  # ms, duration of refractory period
-    "tau_m": 30.0,
+    "t_ref": 5.0,  # ms, duration of refractory period
+    "tau_m": 20.0,
     "V_m": 0.0,
-    "V_th": 0.03,  # mV, spike threshold membrane voltage
+    "V_th": 0.6,  # mV, spike threshold membrane voltage
+    "kappa": 0.97,  # low-pass filter of the eligibility trace
     "delay_out_rec": duration["delay_out_rec"],  # ms, broadcast delay of learning signals
     "delay_rec_out": duration["delay_rec_out"],  # ms, connection delay from recurrent to output neurons
 }
 
-scale_factor = 1.0 - params_nrn_rec["kappa"]  # factor for rescaling due to removal of irregular spike arrival
+params_nrn_ad = {
+    "beta": 1.0,
+    "adapt_tau": 2000.0,  # ms, time constant of adaptive threshold
+    "adaptation": 0.0,  # initial value of the spike threshold adaptation
+    "C_m": 1.0,
+    "c_reg": 300.0 / duration["sequence"] * duration["learning_window"],
+    "E_L": 0.0,
+    "eprop_isi_trace_cutoff": 100,  # cutoff of integration of eprop trace between spikes
+    "f_target": 10.0,
+    "gamma": 0.3,
+    "I_e": 0.0,
+    "regular_spike_arrival": True,
+    "surrogate_gradient_function": "piecewise_linear",
+    "t_ref": 5.0,
+    "tau_m": 20.0,
+    "V_m": 0.0,
+    "V_th": 0.6,
+    "kappa": 0.97,
+    "delay_out_rec": duration["delay_out_rec"],  # ms, broadcast delay of learning signals
+    "delay_rec_out": duration["delay_rec_out"],  # ms, connection delay from recurrent to output neurons
+}
 
-if model_nrn_rec == "eprop_iaf_adapt":
-    params_nrn_rec["adapt_beta"] = 0.0  # adaptation scaling
-
-if model_nrn_rec in ["eprop_iaf_psc_delta", "eprop_iaf_psc_delta_adapt"]:
-    params_nrn_rec["V_reset"] = -0.5  # mV, reset membrane voltage
-    params_nrn_rec["c_reg"] = 2.0 / duration["sequence"] / scale_factor**2
-    params_nrn_rec["V_th"] = 0.5
+params_nrn_ad["adapt_beta"] = 1.7 * (
+    (1.0 - np.exp(-duration["step"] / params_nrn_ad["adapt_tau"]))
+    / (1.0 - np.exp(-duration["step"] / params_nrn_ad["tau_m"]))
+)  # prefactor of adaptive threshold
 
 ####################
 
@@ -225,10 +256,13 @@ if model_nrn_rec in ["eprop_iaf_psc_delta", "eprop_iaf_psc_delta_adapt"]:
 gen_spk_in = nest.Create("spike_generator", n_in)
 nrns_in = nest.Create("parrot_neuron", n_in)
 
-nrns_rec = nest.Create(model_nrn_rec, n_rec, params_nrn_rec)
+nrns_reg = nest.Create("eprop_iaf", n_reg, params_nrn_reg)
+nrns_ad = nest.Create("eprop_iaf_adapt", n_ad, params_nrn_ad)
 nrns_out = nest.Create("eprop_readout", n_out, params_nrn_out)
 gen_rate_target = nest.Create("step_rate_generator", n_out)
 gen_learning_window = nest.Create("step_rate_generator")
+
+nrns_rec = nrns_reg + nrns_ad
 
 # %% ###########################################################################################################
 # Create recorders
@@ -239,18 +273,26 @@ gen_learning_window = nest.Create("step_rate_generator")
 # experiment, and the recording interval can be increased (see the documentation on the specific recorders). By
 # default, recordings are stored in memory but can also be written to file.
 
-n_record = 1  # number of neurons to record dynamic variables from - this script requires n_record >= 1
+n_record = 1  # number of neurons per type to record dynamic variables from - this script requires n_record >= 1
 n_record_w = 5  # number of senders and targets to record weights from - this script requires n_record_w >=1
 
 if n_record == 0 or n_record_w == 0:
     raise ValueError("n_record and n_record_w >= 1 required")
 
-params_mm_rec = {
+params_mm_reg = {
     "interval": duration["step"],  # interval between two recorded time points
     "record_from": ["V_m", "surrogate_gradient", "learning_signal"],  # dynamic variables to record
     "start": duration["offset_gen"] + duration["delay_in_rec"],  # start time of recording
     "stop": duration["offset_gen"] + duration["delay_in_rec"] + duration["task"],  # stop time of recording
-    "label": "multimeter_rec",
+    "label": "multimeter_reg",
+}
+
+params_mm_ad = {
+    "interval": duration["step"],
+    "record_from": params_mm_reg["record_from"] + ["V_th_adapt", "adaptation"],
+    "start": duration["offset_gen"] + duration["delay_in_rec"],
+    "stop": duration["offset_gen"] + duration["delay_in_rec"] + duration["task"],
+    "label": "multimeter_ad",
 }
 
 params_mm_out = {
@@ -275,21 +317,30 @@ params_sr_in = {
     "label": "spike_recorder_in",
 }
 
-params_sr_rec = {
+params_sr_reg = {
     "start": duration["offset_gen"],
     "stop": duration["total_offset"] + duration["task"],
-    "label": "spike_recorder_rec",
+    "label": "spike_recorder_reg",
+}
+
+params_sr_ad = {
+    "start": duration["offset_gen"],
+    "stop": duration["total_offset"] + duration["task"],
+    "label": "spike_recorder_ad",
 }
 
 ####################
 
-mm_rec = nest.Create("multimeter", params_mm_rec)
+mm_reg = nest.Create("multimeter", params_mm_reg)
+mm_ad = nest.Create("multimeter", params_mm_ad)
 mm_out = nest.Create("multimeter", params_mm_out)
 sr_in = nest.Create("spike_recorder", params_sr_in)
-sr_rec = nest.Create("spike_recorder", params_sr_rec)
+sr_reg = nest.Create("spike_recorder", params_sr_reg)
+sr_ad = nest.Create("spike_recorder", params_sr_ad)
 wr = nest.Create("weight_recorder", params_wr)
 
-nrns_rec_record = nrns_rec[:n_record]
+nrns_reg_record = nrns_reg[:n_record]
+nrns_ad_record = nrns_ad[:n_record]
 
 # %% ###########################################################################################################
 # Create connections
@@ -301,27 +352,31 @@ nrns_rec_record = nrns_rec[:n_record]
 params_conn_all_to_all = {"rule": "all_to_all", "allow_autapses": False}
 params_conn_one_to_one = {"rule": "one_to_one"}
 
+
+def calculate_glorot_dist(fan_in, fan_out):
+    glorot_scale = 1.0 / max(1.0, (fan_in + fan_out) / 2.0)
+    glorot_limit = np.sqrt(3.0 * glorot_scale)
+    glorot_distribution = np.random.uniform(low=-glorot_limit, high=glorot_limit, size=(fan_in, fan_out))
+    return glorot_distribution
+
+
 dtype_weights = np.float32  # data type of weights - for reproducing TF results set to np.float32
 weights_in_rec = np.array(np.random.randn(n_in, n_rec).T / np.sqrt(n_in), dtype=dtype_weights)
 weights_rec_rec = np.array(np.random.randn(n_rec, n_rec).T / np.sqrt(n_rec), dtype=dtype_weights)
 np.fill_diagonal(weights_rec_rec, 0.0)  # since no autapses set corresponding weights to zero
-weights_rec_out = np.array(np.random.randn(n_rec, n_out).T / np.sqrt(n_rec), dtype=dtype_weights) * scale_factor
-weights_out_rec = np.array(np.random.randn(n_rec, n_out) / np.sqrt(n_rec), dtype=dtype_weights)
-
-if model_nrn_rec == "eprop_iaf":
-    weights_in_rec *= scale_factor
-    weights_rec_rec *= scale_factor
-    weights_out_rec *= scale_factor
-elif model_nrn_rec in ["eprop_iaf_psc_delta", "eprop_iaf_psc_delta_adapt"]:
-    weights_out_rec /= scale_factor
+weights_rec_out = np.array(calculate_glorot_dist(n_rec, n_out).T, dtype=dtype_weights)
+weights_out_rec = np.array(np.random.randn(n_rec, n_out), dtype=dtype_weights)
 
 params_common_syn_eprop = {
     "optimizer": {
-        "type": "gradient_descent",  # algorithm to optimize the weights
+        "type": "adam",  # algorithm to optimize the weights
         "batch_size": 1,
-        "eta": 1e-4 * scale_factor**2,  # learning rate
-        "optimize_each_step": False,  # call optimizer every time step (True) or once per spike (False); both
-        # yield same results for gradient descent, False offers speed-up
+        "beta_1": 0.9,  # exponential decay rate for 1st moment estimate of Adam optimizer
+        "beta_2": 0.999,  # exponential decay rate for 2nd moment raw estimate of Adam optimizer
+        "epsilon": 1e-8,  # small numerical stabilization constant of Adam optimizer
+        "eta": 5e-3 / duration["learning_window"],  # learning rate
+        "optimize_each_step": True,  # call optimizer every time step (True) or once per spike (False); only
+        # True implements original Adam algorithm, False offers speed-up; choice can affect learning performance
         "Wmin": -100.0,  # pA, minimal limit of the synaptic weights
         "Wmax": 100.0,  # pA, maximal limit of the synaptic weights
     },
@@ -366,6 +421,13 @@ params_syn_static = {
     "delay": duration["step"],
 }
 
+params_init_optimizer = {
+    "optimizer": {
+        "m": 0.0,  # initial 1st moment estimate m of Adam optimizer
+        "v": 0.0,  # initial 2nd moment raw estimate v of Adam optimizer
+    }
+}
+
 ####################
 
 nest.SetDefaults("eprop_synapse", params_common_syn_eprop)
@@ -379,68 +441,102 @@ nest.Connect(gen_rate_target, nrns_out, params_conn_one_to_one, params_syn_rate_
 nest.Connect(gen_learning_window, nrns_out, params_conn_all_to_all, params_syn_learning_window)  # connection 7
 
 nest.Connect(nrns_in, sr_in, params_conn_all_to_all, params_syn_static)
-nest.Connect(nrns_rec, sr_rec, params_conn_all_to_all, params_syn_static)
+nest.Connect(nrns_reg, sr_reg, params_conn_all_to_all, params_syn_static)
+nest.Connect(nrns_ad, sr_ad, params_conn_all_to_all, params_syn_static)
 
-nest.Connect(mm_rec, nrns_rec_record, params_conn_all_to_all, params_syn_static)
+nest.Connect(mm_reg, nrns_reg_record, params_conn_all_to_all, params_syn_static)
+nest.Connect(mm_ad, nrns_ad_record, params_conn_all_to_all, params_syn_static)
 nest.Connect(mm_out, nrns_out, params_conn_all_to_all, params_syn_static)
 
-# %% ###########################################################################################################
-# Create input
-# ~~~~~~~~~~~~
-# We generate some frozen Poisson spike noise of a fixed rate that is repeated in each iteration and feed these
-# spike times to the previously created input spike generator. The network will use these spike times as a
-# temporal backbone for encoding the target signal into its recurrent spiking activity.
+# After creating the connections, we can individually initialize the optimizer's
+# dynamic variables for single synapses (here exemplarily for two connections).
 
-input_spike_prob = 0.05  # spike probability of frozen input noise
+nest.GetConnections(nrns_rec[0], nrns_rec[1:3]).set([params_init_optimizer] * 2)
+
+# %% ###########################################################################################################
+# Create input and output
+# ~~~~~~~~~~~~~~~~~~~~~~~
+# We generate the input as four neuron populations, two producing the left and right cues, respectively, one the
+# recall signal and one the background input throughout the task. The sequence of cues is drawn with a
+# probability that favors one side. For each such sequence, the favored side, the solution or target, is
+# assigned randomly to the left or right.
+
+
+def generate_evidence_accumulation_input_output(
+    batch_size, n_in, prob_group, input_spike_prob, n_cues, n_input_symbols, steps
+):
+    n_pop_nrn = n_in // n_input_symbols
+
+    prob_choices = np.array([prob_group, 1 - prob_group], dtype=np.float32)
+    idx = np.random.choice([0, 1], batch_size)
+    probs = np.zeros((batch_size, 2), dtype=np.float32)
+    probs[:, 0] = prob_choices[idx]
+    probs[:, 1] = prob_choices[1 - idx]
+
+    batched_cues = np.zeros((batch_size, n_cues), dtype=int)
+    for b_idx in range(batch_size):
+        batched_cues[b_idx, :] = np.random.choice([0, 1], n_cues, p=probs[b_idx])
+
+    input_spike_probs = np.zeros((batch_size, steps["sequence"], n_in))
+
+    for b_idx in range(batch_size):
+        for c_idx in range(n_cues):
+            cue = batched_cues[b_idx, c_idx]
+
+            step_start = c_idx * (steps["cue"] + steps["spacing"]) + steps["spacing"]
+            step_stop = step_start + steps["cue"]
+
+            pop_nrn_start = cue * n_pop_nrn
+            pop_nrn_stop = pop_nrn_start + n_pop_nrn
+
+            input_spike_probs[b_idx, step_start:step_stop, pop_nrn_start:pop_nrn_stop] = input_spike_prob
+
+    input_spike_probs[:, -steps["recall"] :, 2 * n_pop_nrn : 3 * n_pop_nrn] = input_spike_prob
+    input_spike_probs[:, :, 3 * n_pop_nrn :] = input_spike_prob / 4.0
+    input_spike_bools = input_spike_probs > np.random.rand(input_spike_probs.size).reshape(input_spike_probs.shape)
+    input_spike_bools[:, 0, :] = 0  # remove spikes in 0th time step of every sequence for technical reasons
+
+    target_cues = np.zeros(batch_size, dtype=int)
+    target_cues[:] = np.sum(batched_cues, axis=1) > int(n_cues / 2)
+
+    return input_spike_bools, target_cues
+
+
+input_spike_prob = 0.04  # spike probability of frozen input noise
 dtype_in_spks = np.float32  # data type of input spikes - for reproducing TF results set to np.float32
 
-input_spike_bools = (np.random.rand(steps["sequence"], n_in) < input_spike_prob).swapaxes(0, 1)
+input_spike_bools_list = []
+target_cues_list = []
 
-sequence_starts = np.arange(0.0, duration["task"], duration["sequence"]) + duration["offset_gen"]
-params_gen_spk_in = []
-for input_spike_bool in input_spike_bools:
-    input_spike_times = np.arange(0.0, duration["sequence"], duration["step"])[input_spike_bool]
-    input_spike_times_all = [input_spike_times + start for start in sequence_starts]
-    params_gen_spk_in.append({"spike_times": np.hstack(input_spike_times_all).astype(dtype_in_spks)})
+for _ in range(n_iter):
+    input_spike_bools, target_cues = generate_evidence_accumulation_input_output(
+        group_size, n_in, prob_group, input_spike_prob, n_cues, n_input_symbols, steps
+    )
+    input_spike_bools_list.append(input_spike_bools)
+    target_cues_list.extend(target_cues)
+
+input_spike_bools_arr = np.array(input_spike_bools_list).reshape(steps["task"], n_in)
+timeline_task = np.arange(0.0, duration["task"], duration["step"]) + duration["offset_gen"]
+
+params_gen_spk_in = [
+    {"spike_times": timeline_task[input_spike_bools_arr[:, nrn_in_idx]].astype(dtype_in_spks)}
+    for nrn_in_idx in range(n_in)
+]
+
+target_rate_changes = np.zeros((n_out, group_size * n_iter))
+target_rate_changes[np.array(target_cues_list), np.arange(group_size * n_iter)] = 1
+
+params_gen_rate_target = [
+    {
+        "amplitude_times": np.arange(0.0, duration["task"], duration["sequence"]) + duration["total_offset"],
+        "amplitude_values": target_rate_changes[nrn_out_idx],
+    }
+    for nrn_out_idx in range(n_out)
+]
 
 ####################
 
 nest.SetStatus(gen_spk_in, params_gen_spk_in)
-
-# %% ###########################################################################################################
-# Create output
-# ~~~~~~~~~~~~~
-# Then, as a superposition of four sine waves with various durations, amplitudes, and phases, we construct a
-# one-second target signal. This signal, like the input, is repeated for all iterations and fed into the rate
-# generator that was previously created.
-
-
-def generate_superimposed_sines(steps_sequence, periods):
-    n_sines = len(periods)
-
-    amplitudes = np.random.uniform(low=0.5, high=2.0, size=n_sines)
-    phases = np.random.uniform(low=0.0, high=2.0 * np.pi, size=n_sines)
-
-    sines = [
-        A * np.sin(np.linspace(phi, phi + 2.0 * np.pi * (steps_sequence // T), steps_sequence))
-        for A, phi, T in zip(amplitudes, phases, periods)
-    ]
-
-    superposition = sum(sines)
-    superposition -= superposition[0]
-    superposition /= max(np.abs(superposition).max(), 1e-6)
-    return superposition
-
-
-target_signal = generate_superimposed_sines(steps["sequence"], [1000, 500, 333, 200])  # periods in steps
-
-params_gen_rate_target = {
-    "amplitude_times": np.arange(0.0, duration["task"], duration["step"]) + duration["total_offset"] + duration["delay_rec_out"] - 1.0,
-    "amplitude_values": np.tile(target_signal, n_iter * group_size),
-}
-
-####################
-
 nest.SetStatus(gen_rate_target, params_gen_rate_target)
 
 # %% ###########################################################################################################
@@ -450,9 +546,20 @@ nest.SetStatus(gen_rate_target, params_gen_rate_target)
 # signal is internally multiplied with this learning window signal. Passing a learning window signal of value 1
 # opens the learning window while passing a value of 0 closes it.
 
+amplitude_times = np.hstack(
+    [
+        np.array([0.0, duration["sequence"] - duration["learning_window"]])
+        + duration["total_offset"]
+        + i * duration["sequence"]
+        for i in range(group_size * n_iter)
+    ]
+)
+
+amplitude_values = np.array([0.0, 1.0] * group_size * n_iter)
+
 params_gen_learning_window = {
-    "amplitude_times": [duration["total_offset"]],
-    "amplitude_values": [1.0],
+    "amplitude_times": amplitude_times,
+    "amplitude_values": amplitude_values,
 }
 
 ####################
@@ -519,10 +626,12 @@ weights_post_train = {
 # ~~~~~~~~~~~~~~~~~~
 # We can also retrieve the recorded history of the dynamic variables and weights, as well as detected spikes.
 
-events_mm_rec = mm_rec.get("events")
+events_mm_reg = mm_reg.get("events")
+events_mm_ad = mm_ad.get("events")
 events_mm_out = mm_out.get("events")
 events_sr_in = sr_in.get("events")
-events_sr_rec = sr_rec.get("events")
+events_sr_reg = sr_reg.get("events")
+events_sr_ad = sr_ad.get("events")
 events_wr = wr.get("events")
 
 # %% ###########################################################################################################
@@ -541,7 +650,15 @@ target_signal = np.array([target_signal[senders == i] for i in set(senders)])
 readout_signal = readout_signal.reshape((n_out, n_iter, group_size, steps["sequence"]))
 target_signal = target_signal.reshape((n_out, n_iter, group_size, steps["sequence"]))
 
+readout_signal = readout_signal[:, :, :, -steps["learning_window"] :]
+target_signal = target_signal[:, :, :, -steps["learning_window"] :]
+
 loss = 0.5 * np.mean(np.sum((readout_signal - target_signal) ** 2, axis=3), axis=(0, 2))
+
+y_prediction = np.argmax(np.mean(readout_signal, axis=3), axis=0)
+y_target = np.argmax(np.mean(target_signal, axis=3), axis=0)
+accuracy = np.mean((y_target == y_prediction), axis=1)
+recall_errors = 1.0 - accuracy
 
 # %% ###########################################################################################################
 # Plot results
@@ -561,6 +678,7 @@ colors = {
 
 plt.rcParams.update(
     {
+        "font.sans-serif": "Arial",
         "axes.spines.right": False,
         "axes.spines.top": False,
         "axes.prop_cycle": cycler(color=[colors["blue"], colors["red"]]),
@@ -568,19 +686,23 @@ plt.rcParams.update(
 )
 
 # %% ###########################################################################################################
-# Plot learning performance
-# .........................
-# We begin with a plot visualizing the learning performance of the network: the loss plotted against the
-# iterations.
+# Plot training error
+# ...................
+# We begin with two plots visualizing the training error of the network: the loss and the recall error, both
+# plotted against the iterations.
 
-fig, ax = plt.subplots()
-fig.suptitle("Learning performance")
+fig, axs = plt.subplots(2, 1, sharex=True)
+fig.suptitle("Training error")
 
-ax.plot(range(1, n_iter + 1), loss)
-ax.set_ylabel(r"$\mathcal{L} = \frac{1}{2} \sum_{t,k} \left( y_k^t -y_k^{*,t}\right)^2$")
-ax.set_xlabel("iteration")
-ax.set_xlim(1, n_iter)
-ax.xaxis.get_major_locator().set_params(integer=True)
+axs[0].plot(range(1, n_iter + 1), loss)
+axs[0].set_ylabel(r"$E = \frac{1}{2} \sum_{t,k} \left( y_k^t -y_k^{*,t}\right)^2$")
+
+axs[1].plot(range(1, n_iter + 1), recall_errors)
+axs[1].set_ylabel("recall errors")
+
+axs[-1].set_xlabel("training iteration")
+axs[-1].set_xlim(1, n_iter)
+axs[-1].xaxis.get_major_locator().set_params(integer=True)
 
 fig.tight_layout()
 
@@ -616,20 +738,27 @@ for title, xlims in zip(
     ["Dynamic variables before training", "Dynamic variables after training"],
     [(0, steps["sequence"]), (steps["task"] - steps["sequence"], steps["task"])],
 ):
-    fig, axs = plt.subplots(9, 1, sharex=True, figsize=(6, 8), gridspec_kw={"hspace": 0.4, "left": 0.2})
+    fig, axs = plt.subplots(14, 1, sharex=True, figsize=(8, 14), gridspec_kw={"hspace": 0.4, "left": 0.2})
     fig.suptitle(title)
 
     plot_spikes(axs[0], events_sr_in, r"$z_i$" + "\n", xlims)
-    plot_spikes(axs[1], events_sr_rec, r"$z_j$" + "\n", xlims)
+    plot_spikes(axs[1], events_sr_reg, r"$z_j$" + "\n", xlims)
 
-    plot_recordable(axs[2], events_mm_rec, "V_m", r"$v_j$" + "\n(mV)", xlims)
-    plot_recordable(axs[3], events_mm_rec, "surrogate_gradient", r"$\psi_j$" + "\n", xlims)
-    plot_recordable(axs[4], events_mm_rec, "learning_signal", r"$L_j$" + "\n(pA)", xlims)
+    plot_recordable(axs[2], events_mm_reg, "V_m", r"$v_j$" + "\n(mV)", xlims)
+    plot_recordable(axs[3], events_mm_reg, "surrogate_gradient", r"$\psi_j$" + "\n", xlims)
+    plot_recordable(axs[4], events_mm_reg, "learning_signal", r"$L_j$" + "\n(pA)", xlims)
 
-    plot_recordable(axs[5], events_mm_out, "V_m", r"$v_k$" + "\n(mV)", xlims)
-    plot_recordable(axs[6], events_mm_out, "target_signal", r"$y^*_k$" + "\n", xlims)
-    plot_recordable(axs[7], events_mm_out, "readout_signal", r"$y_k$" + "\n", xlims)
-    plot_recordable(axs[8], events_mm_out, "error_signal", r"$y_k-y^*_k$" + "\n", xlims)
+    plot_spikes(axs[5], events_sr_ad, r"$z_j$" + "\n", xlims)
+
+    plot_recordable(axs[6], events_mm_ad, "V_m", r"$v_j$" + "\n(mV)", xlims)
+    plot_recordable(axs[7], events_mm_ad, "surrogate_gradient", r"$\psi_j$" + "\n", xlims)
+    plot_recordable(axs[8], events_mm_ad, "V_th_adapt", r"$A_j$" + "\n(mV)", xlims)
+    plot_recordable(axs[9], events_mm_ad, "learning_signal", r"$L_j$" + "\n(pA)", xlims)
+
+    plot_recordable(axs[10], events_mm_out, "V_m", r"$v_k$" + "\n(mV)", xlims)
+    plot_recordable(axs[11], events_mm_out, "target_signal", r"$y^*_k$" + "\n", xlims)
+    plot_recordable(axs[12], events_mm_out, "readout_signal", r"$y_k$" + "\n", xlims)
+    plot_recordable(axs[13], events_mm_out, "error_signal", r"$y_k-y^*_k$" + "\n", xlims)
 
     axs[-1].set_xlabel(r"$t$ (ms)")
     axs[-1].set_xlim(*xlims)
@@ -645,44 +774,33 @@ for title, xlims in zip(
 # the first time step and we add the initial weights manually.
 
 
-def plot_weight_time_course(ax, events, nrns, label, ylabel):
-    sender_label, target_label = label.split("_")
-    nrns_senders = nrns[sender_label]
-    nrns_targets = nrns[target_label]
+def plot_weight_time_course(ax, events, nrns_senders, nrns_targets, label, ylabel):
+    for sender in nrns_senders.tolist():
+        for target in nrns_targets.tolist():
+            idc_syn = (events["senders"] == sender) & (events["targets"] == target)
+            idc_syn_pre = (weights_pre_train[label]["source"] == sender) & (
+                weights_pre_train[label]["target"] == target
+            )
 
-    for sender in set(events_wr["senders"]):
-        for target in set(events_wr["targets"]):
-            if sender in nrns_senders and target in nrns_targets:
-                idc_syn = (events["senders"] == sender) & (events["targets"] == target)
-                if np.any(idc_syn):
-                    idc_syn_pre = (weights_pre_train[label]["source"] == sender) & (
-                        weights_pre_train[label]["target"] == target
-                    )
-                    times = np.concatenate([[0.0], events["times"][idc_syn]])
+            times = [0.0] + events["times"][idc_syn].tolist()
+            weights = [weights_pre_train[label]["weight"][idc_syn_pre]] + events["weights"][idc_syn].tolist()
 
-                    weights = np.concatenate(
-                        [np.array(weights_pre_train[label]["weight"])[idc_syn_pre], events["weights"][idc_syn]]
-                    )
-                    ax.step(times, weights, c=colors["blue"])
+            ax.step(times, weights, c=colors["blue"])
         ax.set_ylabel(ylabel)
-        ax.set_ylim(-0.6, 0.6)
+        ax.set_ylim(-1.5, 1.5)
 
 
 fig, axs = plt.subplots(3, 1, sharex=True, figsize=(3, 4))
 fig.suptitle("Weight time courses")
 
-nrns = {
-    "in": nrns_in.tolist(),
-    "rec": nrns_rec.tolist(),
-    "out": nrns_out.tolist(),
-}
-
-plot_weight_time_course(axs[0], events_wr, nrns, "in_rec", r"$W_\text{in}$ (pA)")
-plot_weight_time_course(axs[1], events_wr, nrns, "rec_rec", r"$W_\text{rec}$ (pA)")
-plot_weight_time_course(axs[2], events_wr, nrns, "rec_out", r"$W_\text{out}$ (pA)")
+plot_weight_time_course(axs[0], events_wr, nrns_in[:n_record_w], nrns_rec[:n_record_w], "in_rec", r"$W_\text{in}$ (pA)")
+plot_weight_time_course(
+    axs[1], events_wr, nrns_rec[:n_record_w], nrns_rec[:n_record_w], "rec_rec", r"$W_\text{rec}$ (pA)"
+)
+plot_weight_time_course(axs[2], events_wr, nrns_rec[:n_record_w], nrns_out, "rec_out", r"$W_\text{out}$ (pA)")
 
 axs[-1].set_xlabel(r"$t$ (ms)")
-axs[-1].set_xlim(0, duration["task"])
+axs[-1].set_xlim(0, steps["task"])
 
 fig.align_ylabels()
 fig.tight_layout()

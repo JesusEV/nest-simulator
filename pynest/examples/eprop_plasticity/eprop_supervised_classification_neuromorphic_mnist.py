@@ -134,6 +134,8 @@ stop_crit = 0.07  # error value corresponding to stop criterion for early stoppi
 steps = {
     "sequence": 300,  # time steps of one full sequence
     "learning_window": 10,  # time steps of window with non-zero learning signals
+    "delay_rec_out": 1,  # time steps of connection delay from recurrent to output neurons
+    "delay_out_rec": 1,  # time steps of broadcast delay of learning signals
 }
 
 steps.update(
@@ -207,6 +209,8 @@ params_nrn_out = {
     "I_e": 0.0,  # pA, external current input
     "tau_m": 100.0,  # ms, membrane time constant
     "V_m": 0.0,  # mV, initial value of the membrane voltage
+    "delay_out_rec": duration["delay_out_rec"],  # ms, broadcast delay of learning signals
+    "delay_rec_out": duration["delay_rec_out"],  # ms, connection delay from recurrent to output neurons
 }
 
 params_nrn_rec = {
@@ -225,6 +229,8 @@ params_nrn_rec = {
     "tau_m": 30.0,
     "V_m": 0.0,
     "V_th": 0.6,  # mV, spike threshold membrane voltage
+    "delay_out_rec": duration["delay_out_rec"],  # ms, broadcast delay of learning signals
+    "delay_rec_out": duration["delay_rec_out"],  # ms, connection delay from recurrent to output neurons
 }
 
 scale_factor = 1.0 - params_nrn_rec["kappa"]  # factor for rescaling due to removal of irregular spike arrival
@@ -389,10 +395,11 @@ params_syn_base = {
 params_syn_in = params_syn_base.copy()
 params_syn_rec = params_syn_base.copy()
 params_syn_out = params_syn_base.copy()
+params_syn_out["delay"] = duration["delay_rec_out"]
 
 params_syn_feedback = {
     "synapse_model": "eprop_learning_signal_connection",
-    "delay": duration["step"],
+    "delay": duration["delay_out_rec"],
     "weight": weights_out_rec,
 }
 
@@ -592,6 +599,7 @@ def get_params_task_input_output(n_iter_interval, loader):
                 + iteration_offset
                 + group_element * duration["sequence"]
                 + duration["total_offset"]
+                + duration["delay_rec_out"] - 1.0
                 for group_element in range(group_size)
             ]
         ),

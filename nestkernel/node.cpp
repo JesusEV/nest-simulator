@@ -230,6 +230,24 @@ Node::get_shift() const
   throw IllegalConnection( "The target node is not an e-prop neuron." );
 }
 
+long
+Node::get_delay_total() const
+{
+  throw IllegalConnection( "The target node is not an e-prop neuron." );
+}
+
+long
+Node::get_delay_recurrent_to_readout() const
+{
+  throw IllegalConnection( "The target node is not an e-prop neuron." );
+}
+
+long
+Node::get_delay_readout_to_recurrent() const
+{
+  throw IllegalConnection( "The target node is not an e-prop neuron." );
+}
+
 void
 Node::write_update_to_history( const long, const long, const long )
 {
@@ -552,6 +570,7 @@ nest::Node::get_tau_syn_in( int )
 void
 nest::Node::compute_gradient( const long,
   const long,
+  std::queue< double >&,
   double&,
   double&,
   double&,

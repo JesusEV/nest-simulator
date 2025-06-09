@@ -111,7 +111,32 @@ public:
    *
    * Retrieves the size of the eprop history buffer.
    */
+
   double get_eprop_history_duration() const;
+
+  /**
+   * @brief Updates multiple entries in the presynaptic buffer.
+   *
+   * Used when the total synaptic delay is greater than one.
+   */
+  void update_pre_syn_buffer_multiple_entries( double& z,
+    double& z_current,
+    double& z_previous,
+    std::queue< double >& z_previous_buffer,
+    double t_spike,
+    double t );
+
+  /**
+   * @brief Updates one entry in the presynaptic buffer.
+   *
+   * Used when the total synaptic delay equals one.
+   */
+  void update_pre_syn_buffer_one_entry( double& z,
+    double& z_current,
+    double& z_previous,
+    std::queue< double >& z_previous_buffer,
+    double t_spike,
+    double t );
 
 protected:
   //! Returns correct shift for history depending on whether it is a normal or a bsshslm_2020 model.
